@@ -1,6 +1,6 @@
-# hero — Super Sid
+# Super Sid
 
-A complete LÖVE / Lua platformer for Gabriel Dino, based on [SidGame.md](docs/SidGame.md).
+A LÖVE / Lua platformer by Gabriel Dino.
 Sid is a determined sloth with a pocketful of fireballs and fifteen trails to explore.
 
 ![Super Sid](docs/preview.png)
