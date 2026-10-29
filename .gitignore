@@ -1,0 +1,13 @@
+# Distributions and local verification output stay out of the repository.
+dist/
+build/
+artifacts/
+*.love
+*.exe
+*.dll
+*.apk
+*.AppImage
+*.log
+.DS_Store
+.idea/
+.vscode/
