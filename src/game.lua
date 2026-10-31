@@ -68,6 +68,14 @@ function Game:hurt()
     self.audio.play("hurt"); self:burst(p.x,p.y,{.8,.28,.2},10)
     if p.health<=0 then self.dead=true end
 end
+function Game:defeat(e)
+    if e.hp<=0 then return end
+    e.hp=0; self.kills=self.kills+1
+    local reward=e.kind=="bird" and 10 or e.kind=="monkey" and 5 or 0
+    self.save.coins=self.save.coins+reward
+    self.earned=self.earned+reward
+    if reward>0 then self.audio.play("coin") end
+end
 function Game:update(dt,input)
     if self.dead or self.finished then return end
     dt=math.min(dt,1/30)
@@ -146,7 +154,7 @@ function Game:update(dt,input)
             end
             if overlaps(p,e) then
                 if p.vy>50 and bottom<=e.y+12 then
-                    e.hp=0; p.vy=-310; self.kills=self.kills+1; self:burst(e.x,e.y,{.23,.36,.3},8); self.audio.play("hurt")
+                    self:defeat(e); p.vy=-310; self:burst(e.x,e.y,{.23,.36,.3},8); self.audio.play("hurt")
                 else self:hurt() end
             end
         end
@@ -159,8 +167,8 @@ function Game:update(dt,input)
                 s.hit[e]=true
                 if s.frost and not e.icy and not e.chilled then e.frozen=3; e.chilled=true
                 else
-                    e.hp=math.max(0,e.hp-s.damage)
-                    if e.hp==0 then self.kills=self.kills+1 end
+                    if e.hp<=s.damage then self:defeat(e)
+                    else e.hp=e.hp-s.damage end
                 end
                 s.remainingHits=s.remainingHits-1
                 if s.remainingHits==0 then s.life=0 end

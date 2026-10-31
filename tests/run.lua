@@ -112,6 +112,43 @@ test("stomping defeats enemies; contact damage respects immunity",function()
     g:update(1/60,{}); assert(g.player.health==2)
     g:update(1/60,{}); assert(g.player.health==2)
 end)
+test("enemy kills award bird and monkey coins exactly once for stomps and every fire type",function()
+    for _,kind in ipairs({"bird","monkey","icecube","snowball"}) do
+        local reward=kind=="bird" and 10 or kind=="monkey" and 5 or 0
+        for _,method in ipairs({"stomp","normal","frost","spread","meteor","pierce"}) do
+            local g,s=newGame()
+            s.coins=20; s.equipped.special=method
+            g.level.coins={}; g.level.ammo={}
+            local e={kind=kind,x=160,y=398,w=26,h=28,min=150,max=200,vx=0,hp=1,
+                homeY=398,phase=0,frozen=60}
+            g.level.enemies={e}
+            if method=="stomp" then
+                g.player.x=160; g.player.y=353; g.player.vy=200
+                g:update(1/60,{})
+            else
+                g.player.x=100; g.player.y=383
+                g:shoot()
+                for _=1,12 do g:update(1/60,{}) end
+                if method=="frost" then
+                    assert(e.hp==1 and s.coins==20 and g.earned==0 and g.kills==0,
+                        "freezing an enemy must not award a kill bonus")
+                    g.player.fireTimer=0; g:shoot()
+                    for _=1,12 do g:update(1/60,{}) end
+                end
+            end
+            assert(e.hp==0 and g.kills==1,kind.." must be defeated by "..method)
+            assert(s.coins==20+reward and g.earned==reward,kind.." has an incorrect reward for "..method)
+            g.player.x=100; g.player.y=383; g.player.fireTimer=0
+            g:shoot()
+            for _=1,30 do g:update(1/60,{}) end
+            assert(s.coins==20+reward and g.earned==reward and g.kills==1,
+                "a defeated enemy must not award coins again")
+            assert(Save.write(s))
+            assert(Save.load().coins==20+reward,"kill rewards must persist in saved coins")
+        end
+    end
+end)
+
 test("shop enforces balances, ownership, equipment, and consumables",function()
     local s=Save.defaults()
     local ok=Shop.buy(s,Shop.items[2]); assert(not ok and s.coins==0)
@@ -153,21 +190,52 @@ test("save round trip, validation, and damaged-save recovery",function()
     files["progress.lua"]="return {version=2,coins=-2,ammo=500,level=88,unlocked=99}"
     restored=Save.load(); assert(restored.coins==0 and restored.ammo==99 and restored.level==Levels.count)
 end)
-test("Sid reaches every raised ledge and can stand or sit without drifting",function()
+test("every island has two raised tiers with rewards and safe step spacing",function()
+    for index=1,Levels.count do
+        local level=Levels.create(index)
+        for _,ground in ipairs(level.platforms) do
+            if ground.kind=="ground" then
+                local tiers={}
+                for _,tile in ipairs(level.platforms) do
+                    if tile.kind=="ledge" and tile.x>=ground.x and tile.x+tile.w<=ground.x+ground.w then
+                        assert(tile.y>=150 and tile.y<ground.y)
+                        assert(tile.stepFrom and tile.stepFrom.y-tile.y<=96)
+                        tiers[tile.tier]=true
+                        local rewarded=false
+                        for _,coin in ipairs(level.coins) do
+                            if coin.x>=tile.x and coin.x+coin.w<=tile.x+tile.w and coin.y==tile.y-30 then rewarded=true end
+                        end
+                        assert(rewarded,"raised platform must have coins")
+                    end
+                end
+                assert(tiers[1] and tiers[2],"missing stacked platforms in trail "..index)
+            end
+        end
+    end
+end)
+
+test("Sid climbs every tier from its real preceding step and sits without drifting",function()
     for index=1,Levels.count do
         for _,fps in ipairs({30,60,144}) do
             local g=newGame(index); g.level.enemies={}
+            g.level.goal={x=g.level.width+100,y=0,w=1,h=1}
             for _,tile in ipairs(g.level.platforms) do
                 if tile.kind=="ledge" then
                     local p=g.player
-                    p.x=tile.x+20; p.y=tile.y+96-p.h; p.vy=0; p.onGround=true
+                    local source=tile.stepFrom
+                    local targetX=tile.x+(tile.w-p.w)/2
+                    p.x=math.max(source.x+12,math.min(source.x+source.w-p.w-12,targetX))
+                    p.y=source.y-p.h; p.vy=0; p.onGround=true
+                    g:update(1/fps,{})
+                    assert(p.platform==source,"climb must start on a real supporting platform")
                     g:jump()
                     local reached=false
                     for _=1,fps do
-                        g:update(1/fps,{})
+                        local dx=targetX-p.x
+                        g:update(1/fps,{left=dx< -195/fps,right=dx>195/fps})
                         if p.platform==tile then reached=true; break end
                     end
-                    assert(reached,"cannot reach ledge in trail "..index.." at "..fps.." FPS")
+                    assert(reached,"cannot reach ledge in trail "..index.." at "..fps.." FPS, x="..tile.x..", y="..tile.y)
                     local x,y=p.x,p.y
                     for _=1,fps do g:update(1/fps,{sit=true}) end
                     assert(p.sitting and p.onGround and p.x==x and p.y==y)

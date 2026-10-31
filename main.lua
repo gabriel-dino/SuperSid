@@ -122,12 +122,21 @@ function love.update(dt)
             game:jump()
             for _=1,50 do game:update(1/60,{}) end
             assert(game.player.onGround and game.player.platform.kind=="ledge","Sid must reach the raised ledge")
+            local lower=game.player.platform
+            local upper
+            for _,tile in ipairs(game.level.platforms) do
+                if tile.tier==2 and tile.stepFrom==lower then upper=tile; break end
+            end
+            assert(upper,"A second raised tier must be available")
+            game:jump()
+            for _=1,50 do game:update(1/60,{right=game.player.x<upper.x+30}) end
+            assert(game.player.platform==upper,"Sid must climb from the first ledge to the second tier")
             game:update(1/60,{sit=true}); assert(game.player.sitting)
             app.smokeSit=true
             game:throwBanana(game.level.enemies[1])
         elseif n==88 then state("gallery")
         elseif n==96 then
-            print("LOVE runtime smoke passed: 15-level route, paginated shop, input, stable ledge sitting, ice enemies, facing gallery, results, controls")
+            print("LOVE runtime smoke passed: 15-level route, paginated shop, input, two-tier climb and stable sitting, ice enemies, facing gallery, results, controls")
             love.event.quit(0)
         end
     end

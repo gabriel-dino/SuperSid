@@ -40,7 +40,9 @@ Run the folder containing `main.lua`; no package installation or compilation is 
 Menus also accept clicks. Touch controls, including **SIT**, appear after the first touch on a touchscreen.
 Sid, monkeys, birds, ice cubes, and snowballs face the direction they move, keeping their last direction when idle.
 Sid walks and fires in the direction he faces. Jump on enemies to stomp them.
-Raised platforms are reachable with the normal jump. Sid lands on top, can rest there indefinitely,
+Every ground island has two raised platform tiers, arranged as steps with coins on both heights.
+Climb from the ground to the first tier, then jump again to the second; wider islands also have a step on the right.
+Each step is reachable with the normal jump, without spring boots. Sid lands on top, can rest there indefinitely,
 and can jump through them from underneath. Holding a movement key or jumping gets him moving again.
 
 ## The adventure
@@ -48,6 +50,7 @@ and can jump through them from underneath. Holding a movement key or jumping get
 - Fifteen sequential levels with eleven scenery palettes, including a night marsh, Halloween trail, glacier, blizzard, and frozen summit.
 - Levels 11–15 progressively increase gap width, shorten safe ground and ledges, speed up enemies, shorten banana cooldowns, and add more enemies.
 - Collect coins, jump over gaps, avoid walking monkeys and flying birds, and reach the finish flag.
+- Defeating a bird earns **10 coins**; defeating a monkey earns **5 coins**, whether stomped or shot. Rewards also count toward the level's coin total.
 - Every monkey has **three bananas per attempt**, a visible wind-up before throwing, and small gold ammo marks above its head. It never reloads. Bananas hurt Sid, stop at terrain, and can be destroyed with fireballs.
 - Level 11 introduces sliding **ice cubes with eyes and hands**. They take two normal fireballs; meteor fire melts them with one hit.
 - Level 12 introduces **snowballs with eyes** that hop along their patrols. Levels 13–15 add denser bird patrols and more snowballs. Ice enemies resist freezing but still take damage from frost fire.
@@ -90,9 +93,10 @@ To reset everything, close the game and remove `progress.lua` and `progress.bak`
 lua tests/run.lua
 ```
 
-The **20 integration tests** check geometry and full traversal of all fifteen trails at **30 / 60 / 144 FPS**,
-every raised platform's jump reachability and stable standing/sitting at those frame rates, facing and patrol turns,
-ammunition, combat, damage immunity, banana limits and collisions, progression, checkpoints, pickup persistence,
+The **22 integration tests** check geometry and full traversal of all fifteen trails at **30 / 60 / 144 FPS**,
+two rewarded raised tiers on every island, every raised platform's jump reachability from its preceding step,
+stable standing/sitting at those frame rates, facing and patrol turns,
+ammunition, combat, kill rewards for stomps and every fire type, damage immunity, banana limits and collisions, progression, checkpoints, pickup persistence,
 shop balances and equipment, new gear and special fire, ice enemies, save recovery, and migration of old saves.
 
 The installed engine can check rendering and UI interactions directly from source:
@@ -101,7 +105,7 @@ The installed engine can check rendering and UI interactions directly from sourc
 & 'C:\Program Files\LOVE\lovec.exe' . --smoke
 ```
 
-The smoke run checks input callbacks, shop pagination and new purchases, Sid landing and sitting on a raised ledge,
+The smoke run checks input callbacks, shop pagination and new purchases, Sid climbing both raised tiers and sitting at the top,
 and renders twelve screenshots, including a facing comparison for Sid and all four enemy types.
 It writes screenshots to the LÖVE save directory's `smoke` folder and exits.
 It uses temporary in-memory progress and does not change your campaign save.

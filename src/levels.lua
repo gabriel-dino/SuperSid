@@ -23,6 +23,7 @@ function Levels.create(index)
     local level = {index=index, name=Levels.names[index], biome=Levels.biomes[index],
         width=2700 + index*210, height=540, platforms={}, coins={}, ammo={}, enemies={}, decorations={},difficulty=difficulty}
     local id = 0
+    local sections = {}
     local function platform(x,y,w,h,kind)
         local p = {x=x,y=y,w=w,h=h or 110,kind=kind or "ground"}
         table.insert(level.platforms,p)
@@ -40,10 +41,14 @@ function Levels.create(index)
         local y = 426 - ((section+index)%3)*14
         if section==1 then y=426 end
         if level.width - (x+width) < 240 then width=level.width-x end
-        platform(x,y,width,540-y)
+        local ground=platform(x,y,width,540-y)
+        ground.tier=0
+        local route={ground=ground}
+        sections[#sections+1]=route
         for cx=x+100,x+width-40,62 do coin(cx,y-38) end
         if width>310 then
             local upper=platform(x+math.min(150,width-180),y-96,132-math.max(0,index-10)*5,15,"ledge")
+            upper.tier=1; upper.stepFrom=ground; route.lower=upper
             for cx=upper.x+16,upper.x+upper.w-10,32 do coin(cx,upper.y-30) end
             table.insert(level.ammo,{x=x+width-80,y=y-25,w=18,h=22,id="ammo"..section})
         end
@@ -69,6 +74,31 @@ function Levels.create(index)
         end
         x=x+width
         if x<level.width then x=x+difficulty.gap end
+    end
+    -- Keep the original pickup IDs stable for campaigns already in progress.
+    -- Add the new routes after the original terrain and pickups are generated.
+    for _,route in ipairs(sections) do
+        local ground=route.ground
+        local lower=route.lower
+        if not lower then
+            lower=platform(ground.x+math.min(150,ground.w-180),ground.y-96,
+                132-math.max(0,index-10)*5,15,"ledge")
+            lower.tier=1; lower.stepFrom=ground
+            for cx=lower.x+16,lower.x+lower.w-10,32 do coin(cx,lower.y-30) end
+        end
+        -- An 88-pixel rise is reachable without buying spring boots.
+        local upperWidth=156-math.max(0,index-10)*4
+        local upper=platform(math.min(lower.x+92,ground.x+ground.w-upperWidth-20),
+            lower.y-88,upperWidth,15,"ledge")
+        upper.tier=2; upper.stepFrom=lower
+        for cx=upper.x+16,upper.x+upper.w-10,32 do coin(cx,upper.y-30) end
+        -- Wider islands get a second step for descending or climbing from the right.
+        local descentX=ground.x+ground.w-140
+        if descentX>=lower.x+lower.w+32 then
+            local descent=platform(descentX,lower.y,math.min(120,lower.w),15,"ledge")
+            descent.tier=1; descent.stepFrom=ground
+            for cx=descent.x+16,descent.x+descent.w-10,32 do coin(cx,descent.y-30) end
+        end
     end
     local last=level.platforms[#level.platforms]
     -- Locate the final ground, since decorative ledges are also platforms.
