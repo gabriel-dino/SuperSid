@@ -53,7 +53,7 @@ openContrib=function(message)
 end
 openEditor=function(level,filename)
     local function open()
-        if level or not app.editor then app.editor=Editor.new(level,filename) end
+        if level or not app.editor then app.editor=Editor.new(level,filename,save.owned) end
         state("editor")
     end
     if level and app.editor and app.editor.dirty then state("editor"); leaveEditor(open)
@@ -109,15 +109,17 @@ function love.update(dt)
         app.editor:scroll(pan*640*dt)
     end
     if app.state=="playing" then
-        local left,right,shooting,sitting=false,false,false,false
+        local left,right,shooting,sitting,gliding=false,false,false,false,false
         for _,t in pairs(app.touches) do
             if t.x<125 and t.y>400 then left=true
             elseif t.x<240 and t.y>400 then right=true
             elseif t.x>=600 and t.x<700 and t.y>400 then sitting=true
+            elseif t.x>=700 and t.x<830 and t.y>400 then gliding=true
             elseif t.x>830 and t.y>400 then shooting=true end
         end
         game:update(dt,{left=left or love.keyboard.isDown("a","left"),right=right or love.keyboard.isDown("d","right"),
-            shoot=shooting or love.keyboard.isDown("lalt","ralt","x"),sit=sitting or love.keyboard.isDown("s","down") or smoke and app.smokeSit})
+            shoot=shooting or love.keyboard.isDown("lalt","ralt","x"),sit=sitting or love.keyboard.isDown("s","down") or smoke and app.smokeSit,
+            glide=gliding or love.keyboard.isDown("space","w","up") or smoke and app.smokeGlide})
         app.saveTimer=app.saveTimer+dt
         if app.saveTimer>2 then persist(); app.saveTimer=0 end
         if game.dead then state("dead"); persist()
@@ -193,8 +195,10 @@ function love.update(dt)
         elseif n>=104 then
             require("tests.editor_smoke")(n,app,save,{
                 game=function() return game end,
+                start=start,
+                route=function() save.unlocked=Levels.count; state("route") end,
                 screenshotDone=function()
-                    print("LOVE runtime smoke passed: campaign, shop, tiered platforms, editor drawing and text, save, custom play/retry/results, import, community library")
+                    print("LOVE runtime smoke passed: 25 levels, three shop pages, magnet, parachute, companion, decoration packs and sharing, editor, custom play and campaign progression")
                 end
             })
         end
@@ -226,7 +230,7 @@ function love.draw()
             save=function() e:save() end,copy=function() e:save(true) end,
             test=function() e:finish(); playCustom(e.level,"editor") end,
             back=back,folder=openFolder,
-            new=function() leaveEditor(function() app.editor=Editor.new(); state("editor") end) end,
+            new=function() leaveEditor(function() app.editor=Editor.new(nil,nil,save.owned); state("editor") end) end,
             rename=function(field)
                 app.dialog={kind="text",field=field,value=e.level[field]}
                 app.focus=1
@@ -269,7 +273,7 @@ function love.draw()
             local y=137+(i-1)*35
             R.rect(32,y,235,31,"E4E8D9",4); R.text(row[1],45,y+8,12); R.text(row[2],286,y+6,16)
         end
-        R.text("15 trails await. Monkeys have only 3 bananas each. Ice cubes take 2 normal hits.\nStart with 5 sparks. Find ammo pouches. Coins, purchases, and checkpoints save automatically.",33,410,14,"718369",850)
+        R.text(Levels.count.." trails await. Equip the leaf parachute and hold JUMP while falling to glide.\nFind coins for a magnet, companion and editor decorations. Progress saves automatically.",33,410,14,"718369",850)
         button("Ready to wander",710,479,218,38,back)
     elseif mode=="gallery" and smoke then
         R.panel("Facing and platform verification","All artwork faces right locally, then mirrors with movement. Sid's feet stay on the platform.")
@@ -308,7 +312,7 @@ function love.draw()
             button(game.custom and "Back to levels" or "Visit the shop",485,276,231,45,game.custom and returnFromCustom or shop,true)
             button("Back to camp",238,341,478,34,function() state("menu") end,true)
         elseif mode=="finished" or mode=="won" then
-            modal(mode=="won" and "Small sloth. Big hero." or "One trail closer.",mode=="won" and "Fifteen trails behind you. A whole world ahead." or game.level.name.." — complete!")
+            modal(mode=="won" and "Small sloth. Big hero." or "One trail closer.",mode=="won" and (Levels.count.." trails behind you. A whole world ahead.") or game.level.name.." — complete!")
             R.text(game.earned.." coins collected   /   "..game.kills.." enemies outsmarted",230,245,14,"8C783F",500,"center")
             button(game.custom and "Play again" or mode=="won" and "Back to camp" or "Next adventure  >",238,287,231,45,function()
                 if game.custom then playCustom(game.sourceCustom,app.customReturn)
@@ -396,6 +400,7 @@ function love.keypressed(key)
         elseif key=="end" then e:scroll(e.level.width)
         elseif key=="c" then e.tool="checkpoint"
         elseif key=="e" then e.tool="erase"
+        elseif key=="v" then e.tool="decoration"
         else
             local number=tonumber(key)
             if number then e.tool=Editor.tools[number==0 and 10 or number].id end

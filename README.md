@@ -1,7 +1,7 @@
 # Super Sid
 
 A LÖVE / Lua platformer by Gabriel Dino.
-Sid is a determined sloth with a pocketful of fireballs and fifteen trails to explore.
+Sid is a determined sloth with a pocketful of fireballs and twenty-five trails to explore.
 
 ![Super Sid](docs/preview.png)
 
@@ -29,6 +29,7 @@ Run the folder containing `main.lua`; no package installation or compilation is 
 | --- | --- |
 | Walk in either direction | A / D or Left / Right |
 | Jump | Space, W, or Up; hold for a higher jump |
+| Glide with the leaf parachute equipped | Hold Space, W, Up or the touch JUMP button while falling |
 | Sit on the ground or a raised platform | Hold S or Down; release to stand |
 | Shoot fireballs | Left / Right Alt or X; hold for repeated fire |
 | Shop | B |
@@ -47,8 +48,9 @@ and can jump through them from underneath. Holding a movement key or jumping get
 
 ## The adventure
 
-- Fifteen sequential levels with eleven scenery palettes, including a night marsh, Halloween trail, glacier, blizzard, and frozen summit.
+- Twenty-five sequential levels with eleven scenery palettes, including a night marsh, Halloween trail, glacier, blizzard, and frozen summit.
 - Levels 11–15 progressively increase gap width, shorten safe ground and ledges, speed up enemies, shorten banana cooldowns, and add more enemies.
+- Levels 16–25 add mushroom paths, crystal scenery, lantern woods, golden terraces, a secret garden, snowy passes and cloud heights. They have longer trails, faster patrols and higher ground terraces. All routes and platform tiers remain reachable without purchased equipment.
 - Collect coins, jump over gaps, avoid walking monkeys and flying birds, and reach the finish flag.
 - Defeating a bird earns **10 coins**; defeating a monkey earns **5 coins**, whether stomped or shot. Rewards also count toward the level's coin total.
 - Every monkey has **three bananas per attempt**, a visible wind-up before throwing, and small gold ammo marks above its head. It never reloads. Bananas hurt Sid, stop at terrain, and can be destroyed with fireballs.
@@ -57,13 +59,13 @@ and can jump through them from underneath. Holding a movement key or jumping get
 - Each attempt starts with at least **five fireballs**. Ammo pouches add five; unused ammo above five carries over.
 - Three hearts per attempt (four with Brave heart), a checkpoint in every level, and unlimited retries.
 - Coins and collected pickups persist across retries, so the same pickup cannot be collected twice on an attempt.
-- The shop has **20 items across two pages**: hats, ammo, four colors, two faster blasters, four special fire types, outfits, boots, and charms. Use the **< / >** buttons, Page Up / Page Down, brackets, mouse wheel, or arrow selection to browse both pages.
+- The shop has **26 items across three pages**: hats, ammo, four colors, two faster blasters, four special fire types, outfits, boots, charms, a coin magnet, a leaf parachute, a companion and three editor decoration packs. Use the **< / >** buttons, Page Up / Page Down, brackets, mouse wheel, or arrow selection to browse all pages.
 - Purchased equipment stays owned. Click or select it again to equip or remove it. One item per equipment category is active at a time.
 - Frost fireballs freeze an enemy for three seconds; another hit defeats it. Triple fire uses one ammo per three-projectile volley.
 - Progress saves every two seconds during play and when pausing, shopping, finishing, or quitting. Leaving the application pauses play.
 - Continue resumes the current level at its checkpoint if reached. Unlocked levels can be replayed from **The trail**.
-- Completing level fifteen wins the game. **Walk the trail again** starts another campaign while keeping purchases and coins.
-- Saves from the original ten-level game upgrade automatically. Former champions continue at level eleven with coins and equipment intact; unfinished campaigns keep their current level and checkpoint.
+- Completing level twenty-five wins the game. **Walk the trail again** starts another campaign while keeping purchases and coins.
+- Saves upgrade automatically. Champions of the original ten-level game continue at level eleven; champions of the fifteen-level game continue at level sixteen. Coins and equipment stay intact; unfinished campaigns keep their current level, pickups and checkpoint.
 
 ### New shop finds
 
@@ -77,9 +79,19 @@ and can jump through them from underneath. Holding a movement key or jumping get
 | Spring boots | 55 | Higher jumps while equipped |
 | Brave heart | 70 | Start each attempt with four hearts |
 | Banana umbrella | 45 | Block one banana per attempt |
+| Coin magnet | 40 | Pull coins within 120 pixels toward Sid for 30 equipped seconds per attempt |
+| Leaf parachute | 60 | Hold jump while descending to slow the fall; release to fall normally |
+| Little companion | 150 | A friendly yellow chick follows Sid; cosmetic and harmless |
+| Woodland pack | 50 | Unlock mushrooms, ferns and flowers in the editor |
+| Crystal pack | 50 | Unlock crystals, ice flowers and sparkles in the editor |
+| Trail signs pack | 50 | Unlock signs, lanterns and banners in the editor |
 
 Charms share one equipment slot. Heart and umbrella effects are set at the start of each attempt;
 boots and special fire change immediately when equipped. Each special fireball or triple volley uses one ammo.
+Magnet, parachute and companion have separate equipment slots and can be used together. The magnet's remaining
+time appears below the HUD; unequipping it pauses the timer and re-equipping never refills it. Starting an attempt
+resets it to 30 seconds. Decoration packs are permanent unlocks: buying them again costs nothing, and all purchased
+packs remain available together without an equipment slot.
 
 ![Sid sitting on a raised platform in Icebox foothills, with monkeys and ice enemies below](docs/icebox-preview.png)
 
@@ -98,6 +110,7 @@ on the map. Terrain is solid; platforms can be jumped through from below. A 24-p
 | Add platforms | Select Platform (2), then drag horizontally |
 | Add enemies | Select Monkey, Bird, Ice cube or Snowball (3–6), then click |
 | Add coins / ammo | Select Coins (7) and paint, or select Ammo (8) and click |
+| Add purchased decorations | Click the Decor selector above the map to cycle unlocked objects; use Decor (V) and click near a surface |
 | Set start / finish / checkpoint | Select Sid start (9), Finish flag (0) or Checkpoint (C), then click near a surface |
 | Remove an object | Select Eraser (E), or right-click an object |
 | Undo / redo | Buttons, Ctrl+Z / Ctrl+Y, or Ctrl+Shift+Z |
@@ -112,6 +125,9 @@ where they are placed. Move objects by erasing and placing them again. The start
 floor: erase it and draw separate terrain rectangles to make gaps. Shrinking a map requires moving or removing
 objects beyond its new edge first. A level needs a supported start and finish before saving or testing;
 the checkpoint is optional. The game prompts before leaving or closing an editor with unsaved changes.
+Buy decoration packs in the main menu's Shop to unlock nine decorative objects. They are drawn behind Sid and
+do not block movement. Saved and imported levels retain their decorations; other players can view, play and edit
+those levels without buying the packs, while placing additional decorations requires the matching pack.
 
 **Save** creates a `.sidlevel` file in the `levels` subfolder of LÖVE's save directory, usually
 `%APPDATA%\LOVE\hero-supersid\levels` on Windows. The editor's **Folder** button opens that location.
@@ -134,13 +150,15 @@ Shared files contain data only and are parsed without executing Lua. Format deta
 lua tests/run.lua
 ```
 
-The **30 integration tests** check geometry and full traversal of all fifteen trails at **30 / 60 / 144 FPS**,
+The **37 integration tests** check geometry and full traversal of all twenty-five trails at **30 / 60 / 144 FPS**,
 two rewarded raised tiers on every island, every raised platform's jump reachability from its preceding step,
 stable standing/sitting at those frame rates, facing and patrol turns,
 ammunition, combat, kill rewards for stomps and every fire type, damage immunity, banana limits and collisions, progression, checkpoints, pickup persistence,
 shop balances and equipment, new gear and special fire, ice enemies, save recovery, and migration of old saves.
 They also cover level-file round trips and validation, imports and filename collisions, editor drawing and history,
 failed saves, custom checkpoints and retries, campaign isolation, and solid terrain versus one-way platforms.
+Expansion checks cover magnet range and expiry, parachute input and landing, companion behavior, decoration pack
+ownership and file sharing, save migration, and all ten new level layouts.
 
 The installed engine can check rendering and UI interactions directly from source:
 
@@ -150,7 +168,8 @@ The installed engine can check rendering and UI interactions directly from sourc
 
 The smoke run checks input callbacks, shop pagination and new purchases, Sid climbing both raised tiers and sitting at the top,
 editor mouse drawing and text input, saving and testing, imports, the Contrib levels list, custom results and retries.
-It renders 32 screenshots, including the editor, import and unsaved-change dialogs, and custom gameplay.
+It renders 47 screenshots, including all three shop pages, all nine editor decorations, gliding with a companion,
+new scenery, the complete 25-level route, import and unsaved-change dialogs, and custom gameplay.
 It writes screenshots to the LÖVE save directory's `smoke` folder, writes test levels only inside `smoke/levels`, and exits.
 It uses temporary in-memory progress and does not change your campaign save.
 
@@ -159,7 +178,8 @@ It uses temporary in-memory progress and does not change your campaign save.
 | `main.lua` | Menus, input, state transitions, viewport, runtime smoke check |
 | `src/game.lua` | Movement, collisions, combat, pickups, checkpoints, progression |
 | `src/actors.lua` | Shared facing convention for the hero and enemies |
-| `src/levels.lua` | Fifteen deterministic level layouts, difficulty, and themes |
+| `src/levels.lua` | Twenty-five deterministic level layouts, difficulty, and themes |
+| `src/decorations.lua` | Shared decoration types, sizes and pack ownership |
 | `src/custom_levels.lua` | Data-only level format, validation, library, import/export and runtime conversion |
 | `src/editor.lua` | Grid tools, placement, erasing, undo/redo, resizing and saving |
 | `src/editor_view.lua` | Editor and Contrib levels interfaces |

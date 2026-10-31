@@ -20,11 +20,18 @@ Shop.items = {
     {id="boots",name="Spring boots",category="GEAR",description="Jump higher to reach lofty ledges.",cost=55,kind="boots",icon="boots"},
     {id="heart",name="Brave heart",category="CHARMS",description="Start each attempt with 4 hearts.",cost=70,kind="charm",icon="heart"},
     {id="shield",name="Banana umbrella",category="CHARMS",description="Block one banana per attempt.",cost=45,kind="charm",icon="shield"},
+    {id="magnet",name="Coin magnet",category="GEAR",description="Pull nearby coins for 30s per try.",cost=40,kind="magnet",icon="magnet"},
+    {id="parachute",name="Leaf parachute",category="GEAR",description="Hold jump while falling to glide.",cost=60,kind="parachute",icon="parachute"},
+    {id="chick",name="Little companion",category="COMPANIONS",description="A friendly chick follows Sid.",cost=150,kind="companion",icon="bird"},
+    {id="deco_woodland",name="Woodland pack",category="EDITOR DECORATIONS",description="Mushrooms, ferns and flowers.",cost=50,kind="decoration",icon="flower"},
+    {id="deco_crystals",name="Crystal pack",category="EDITOR DECORATIONS",description="Crystals, ice flowers and sparkles.",cost=50,kind="decoration",icon="crystal"},
+    {id="deco_trail",name="Trail signs pack",category="EDITOR DECORATIONS",description="Signs, lanterns and banners.",cost=50,kind="decoration",icon="sign"},
 }
 Shop.pageSize=12
 function Shop.page(index) return math.floor((index-1)/Shop.pageSize)+1 end
 function Shop.pageCount() return math.ceil(#Shop.items/Shop.pageSize) end
 function Shop.equipped(save,item)
+    if item.kind=="decoration" then return save.owned[item.id]==true end
     return item.kind~="ammo" and save.equipped[item.kind]==item.id
 end
 function Shop.buy(save,item)
@@ -34,6 +41,12 @@ function Shop.buy(save,item)
         save.coins=save.coins-item.cost
         save.ammo=math.min(99,save.ammo+5)
         return true,"Five sparks, coming right up!"
+    end
+    if item.kind=="decoration" then
+        if save.owned[item.id] then return true,"Already unlocked in the Level editor." end
+        if save.coins<item.cost then return false,"Collect a few more coins first." end
+        save.coins=save.coins-item.cost; save.owned[item.id]=true
+        return true,"Decoration pack unlocked! Use Decor in the Level editor."
     end
     if save.owned[item.id] then
         if Shop.equipped(save,item) then save.equipped[item.kind]=nil

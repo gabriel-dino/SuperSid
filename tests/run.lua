@@ -32,9 +32,9 @@ end
 local function newGame(level)
     local s=Save.defaults(); local g=Game.new(s,audio); g:start(level or 1); return g,s
 end
-test("fifteen levels have distinct identities and valid placements",function()
+test("twenty-five levels have distinct identities and valid placements",function()
     local names={}
-    assert(Levels.count==15)
+    assert(Levels.count==25)
     for i=1,Levels.count do
         local l=Levels.create(i)
         assert(not names[l.name]); names[l.name]=true
@@ -51,12 +51,12 @@ test("fifteen levels have distinct identities and valid placements",function()
         assert(previous.x+previous.w==l.width)
     end
 end)
-test("all fifteen trails are traversable with the actual jump physics",function()
+test("all twenty-five trails are traversable without purchased gear",function()
     for index=1,Levels.count do
         for _,fps in ipairs({30,60,144}) do
             local g,s=newGame(index)
             g.level.enemies={}
-            for frame=1,math.ceil(40*fps) do
+            for frame=1,math.ceil(60*fps) do
                 local p=g.player
                 if p.onGround then
                     for _,ground in ipairs(g.level.platforms) do
@@ -168,7 +168,11 @@ test("shop enforces balances, ownership, equipment, and consumables",function()
     for _,item in ipairs(Shop.items) do
         local before=s.coins
         assert(Shop.buy(s,item)); assert(s.coins==before-item.cost)
-        if item.kind~="ammo" then
+        if item.kind=="decoration" then
+            assert(s.owned[item.id] and Shop.equipped(s,item))
+            local coins=s.coins
+            Shop.buy(s,item); assert(s.owned[item.id] and s.coins==coins)
+        elseif item.kind~="ammo" then
             assert(s.owned[item.id] and Shop.equipped(s,item))
             local coins=s.coins
             Shop.buy(s,item); assert(s.equipped[item.kind]==nil and s.coins==coins)
@@ -373,17 +377,19 @@ end)
 test("legacy champions unlock level eleven without losing coins or purchases",function()
     files["progress.lua"]="return {version=1,coins=123,ammo=9,level=10,unlocked=10,completed=true,checkpoint=true,collected={coin1=true},owned={witch=true},equipped={hat='witch'}}"
     local s=Save.load()
-    assert(s.version==2 and s.level==11 and s.unlocked==11 and not s.completed and not s.checkpoint)
+    assert(s.version==3 and s.level==11 and s.unlocked==11 and not s.completed and not s.checkpoint)
     assert(s.coins==123 and s.ammo==9 and s.owned.witch and s.equipped.hat=="witch" and not next(s.collected))
     Save.write(s); s=Save.load(); assert(s.level==11 and s.coins==123)
     files["progress.lua"]="return {version=1,coins=22,ammo=3,level=6,unlocked=6,completed=false,checkpoint=true,collected={coin1=true}}"
     s=Save.load(); assert(s.level==6 and s.checkpoint and s.collected.coin1 and s.coins==22)
 end)
-test("shop catalog spans two reachable pages with unique items",function()
-    assert(#Shop.items==20 and Shop.pageCount()==2)
+test("shop catalog spans three reachable pages with unique items",function()
+    assert(#Shop.items==26 and Shop.pageCount()==3)
     assert(Shop.page(1)==1 and Shop.page(12)==1 and Shop.page(13)==2 and Shop.page(20)==2)
+    assert(Shop.page(25)==3 and Shop.page(26)==3)
     local ids={}
     for _,item in ipairs(Shop.items) do assert(not ids[item.id]); ids[item.id]=true end
 end)
 require("tests.editor")(test)
+require("tests.expansion")(test)
 print("\n"..passed.." integration tests passed.")

@@ -3,8 +3,10 @@
 The Level editor saves `.sidlevel` files as UTF-8 text. Share these files through any file-sharing method;
 the recipient imports them from Contrib levels. No account or server is required.
 
-Version 1 uses one record per line and **tab-separated** fields. Windows and Unix line endings are supported.
-The first line must be `SUPER_SID_LEVEL`, a tab, then `1`. Metadata and markers occur once each; object records repeat.
+The format uses one record per line and **tab-separated** fields. Windows and Unix line endings are supported.
+The first line must be `SUPER_SID_LEVEL`, a tab, then `1` or `2`. The editor writes version 2 when a level contains
+decorations, and version 1 otherwise. Current versions read both formats. Metadata and markers occur once each;
+object records repeat.
 
 | Record | Fields after the record name |
 | --- | --- |
@@ -23,6 +25,12 @@ The first line must be `SUPER_SID_LEVEL`, a tab, then `1`. Metadata and markers 
 | `bird` | x, y of a bird's top-left corner (28 × 20) |
 | `icecube` | x, y of an ice cube's top-left corner (30 × 30) |
 | `snowball` | x, y of a snowball's top-left corner (24 × 24) |
+| `decoration` | kind, x, y of the decorative object's top-left corner (version 2) |
+
+Decoration kinds and sizes are `mushroom` (32 × 32), `fern` (32 × 32), `flower` (24 × 32), `crystal` (32 × 48),
+`iceflower` (32 × 32), `sparkle` (24 × 24), `sign` (40 × 40), `lantern` (24 × 48), and `banner` (32 × 48).
+They have no collision or gameplay effects. Decoration packs control placement in the editor; importing or playing
+a decorated level does not require purchasing the packs. Decorations count toward the object limit.
 
 The world is 540 pixels high. Coordinates and dimensions are integers; objects must fit inside its bounds.
 Start, finish and checkpoint need a surface at most 96 pixels below their feet. Walking enemies need a surface

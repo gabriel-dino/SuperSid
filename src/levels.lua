@@ -3,17 +3,22 @@ Levels.names = {
     "A slow beginning", "Fernwood trail", "The broken bridge", "Cloudberry cliffs",
     "Monkey business", "Moonlit marsh", "The amber canyon", "Pumpkin hollow",
     "Frostbite ridge", "The last little leap", "Icebox foothills", "Snowball scramble",
-    "Glacier gauntlet", "Blizzard crossing", "The frozen summit"
+    "Glacier gauntlet", "Blizzard crossing", "The frozen summit",
+    "Mushroom promenade", "Crystal creek", "Lanternwood", "Golden terraces", "The secret garden",
+    "Starlight canyon", "Snowpetal pass", "The crystal blizzard", "Moonstone heights", "Home among the clouds"
 }
 Levels.count=#Levels.names
 Levels.biomes = {"meadow", "forest", "meadow", "ridge", "forest", "night", "canyon", "halloween", "snow", "sunset",
-    "snow", "snow", "glacier", "blizzard", "summit"}
+    "snow", "snow", "glacier", "blizzard", "summit",
+    "forest", "glacier", "night", "canyon", "meadow", "sunset", "snow", "blizzard", "summit", "ridge"}
 
 function Levels.difficulty(index)
     local extra=math.max(0,index-10)
-    return {gap=68+math.min(30,index*3)+extra*4,groundShrink=extra*22,
+    local icy=index<=15 or Levels.biomes[index]=="snow" or Levels.biomes[index]=="glacier" or Levels.biomes[index]=="blizzard" or Levels.biomes[index]=="summit"
+    local gap=index>15 and (104+math.min(6,math.floor((index-16)/3)*2)) or math.min(118,68+math.min(30,index*3)+extra*4)
+    return {gap=gap,groundShrink=math.min(110,extra*22),
         speed=37+index*3+extra*4,bananaCooldown=math.max(.95,2.4-index*.08),
-        iceCubes=extra>0 and 1 or 0,snowballs=extra>=2 and (extra>=4 and 2 or 1) or 0,
+        iceCubes=extra>0 and icy and 1 or 0,snowballs=extra>=2 and icy and (extra>=4 and 2 or 1) or 0,
         extraBird=extra>=3}
 end
 
@@ -39,15 +44,16 @@ function Levels.create(index)
         local width = section == 1 and 610 or (390 + (section*73 + index*29)%160-difficulty.groundShrink)
         width=math.min(width,level.width-x)
         local y = 426 - ((section+index)%3)*14
+        if index>15 then y=426-((section+index)%4)*12 end
         if section==1 then y=426 end
-        if level.width - (x+width) < 240 then width=level.width-x end
+        if level.width - (x+width) < 240+(index>15 and difficulty.gap or 0) then width=level.width-x end
         local ground=platform(x,y,width,540-y)
         ground.tier=0
         local route={ground=ground}
         sections[#sections+1]=route
         for cx=x+100,x+width-40,62 do coin(cx,y-38) end
         if width>310 then
-            local upper=platform(x+math.min(150,width-180),y-96,132-math.max(0,index-10)*5,15,"ledge")
+            local upper=platform(x+math.min(150,width-180),y-96,132-math.min(5,math.max(0,index-10))*5,15,"ledge")
             upper.tier=1; upper.stepFrom=ground; route.lower=upper
             for cx=upper.x+16,upper.x+upper.w-10,32 do coin(cx,upper.y-30) end
             table.insert(level.ammo,{x=x+width-80,y=y-25,w=18,h=22,id="ammo"..section})
@@ -82,12 +88,12 @@ function Levels.create(index)
         local lower=route.lower
         if not lower then
             lower=platform(ground.x+math.min(150,ground.w-180),ground.y-96,
-                132-math.max(0,index-10)*5,15,"ledge")
+                132-math.min(5,math.max(0,index-10))*5,15,"ledge")
             lower.tier=1; lower.stepFrom=ground
             for cx=lower.x+16,lower.x+lower.w-10,32 do coin(cx,lower.y-30) end
         end
         -- An 88-pixel rise is reachable without buying spring boots.
-        local upperWidth=156-math.max(0,index-10)*4
+        local upperWidth=156-math.min(5,math.max(0,index-10))*4
         local upper=platform(math.min(lower.x+92,ground.x+ground.w-upperWidth-20),
             lower.y-88,upperWidth,15,"ledge")
         upper.tier=2; upper.stepFrom=lower
@@ -98,6 +104,15 @@ function Levels.create(index)
             local descent=platform(descentX,lower.y,math.min(120,lower.w),15,"ledge")
             descent.tier=1; descent.stepFrom=ground
             for cx=descent.x+16,descent.x+descent.w-10,32 do coin(cx,descent.y-30) end
+        end
+    end
+    if index>15 then
+        local themes={"mushroom","crystal","lantern","sign","flower","banner","iceflower","crystal","sparkle","fern"}
+        local kind=themes[index-15]
+        local sizes=require("src.decorations").sizes
+        for _,route in ipairs(sections) do
+            local g=route.ground; local size=sizes[kind]
+            level.decorations[#level.decorations+1]={kind=kind,x=g.x+g.w-65,y=g.y-size[2],w=size[1],h=size[2]}
         end
     end
     local last=level.platforms[#level.platforms]

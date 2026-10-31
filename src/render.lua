@@ -190,6 +190,46 @@ function R.enemy(e,time)
     end
     love.graphics.pop()
 end
+function R.decoration(d,time)
+    local x,y=d.x,d.y
+    if d.kind=="mushroom" then
+        R.rect(x+12,y+16,8,16,"DCCDA6"); R.rect(x+3,y+9,26,12,"BC6C57",3)
+        R.rect(x+8,y+3,16,10,"BC6C57",3); R.rect(x+8,y+11,5,4,"FFF3D3"); R.rect(x+21,y+8,4,4,"FFF3D3")
+    elseif d.kind=="fern" then
+        R.rect(x+15,y+4,3,28,"456A52")
+        for i=0,3 do R.rect(x+3+i*3,y+6+i*6,13-i*2,4,"77976B"); R.rect(x+18,y+7+i*6,12-i*2,4,"84A073") end
+    elseif d.kind=="flower" or d.kind=="iceflower" then
+        local ice=d.kind=="iceflower"; local center=ice and 16 or 12
+        R.rect(x+center-1,y+14,3,18,ice and "77B4CA" or "77976B")
+        for _,offset in ipairs({{-9,6},{5,6},{-2,0},{-2,12}}) do R.rect(x+center+offset[1],y+offset[2],8,8,ice and "D8F0F0" or "BE9ABC",2) end
+        R.rect(x+center-2,y+7,7,7,"E6B562",2)
+    elseif d.kind=="crystal" then
+        R.color("77B4CA"); love.graphics.polygon("fill",x+16,y,x+28,y+15,x+25,y+44,x+9,y+48,x+4,y+17)
+        R.color("D8F0F0"); love.graphics.polygon("fill",x+16,y+3,x+16,y+41,x+9,y+43,x+8,y+17)
+        R.rect(x+23,y+27,8,17,"91CFDF")
+    elseif d.kind=="sparkle" then
+        local color=math.sin(time*3+x)>.2 and "FFF3D3" or "D6A34A"
+        R.rect(x+10,y,4,24,color); R.rect(x,y+10,24,4,color); R.rect(x+6,y+6,12,12,color)
+    elseif d.kind=="sign" then
+        R.rect(x+16,y+14,5,26,"806C44"); R.rect(x,y+2,36,20,"B29458",2)
+        R.rect(x+8,y+10,15,4,"FFF3D3"); R.color("FFF3D3"); love.graphics.polygon("fill",x+22,y+6,x+29,y+12,x+22,y+18)
+    elseif d.kind=="lantern" then
+        R.rect(x+10,y,4,48,"806C44"); R.rect(x+2,y+2,20,4,"806C44")
+        R.rect(x+1,y+9,22,25,"76613F",3); R.rect(x+5,y+12,14,19,"E6B562",3)
+        R.rect(x+9,y+16,6,11,"FFF3D3",2)
+    elseif d.kind=="banner" then
+        R.rect(x+2,y,4,48,"806C44"); R.rect(x+6,y+2,25,27,"BE7358")
+        R.rect(x+14,y+8,9,12,"F1C965"); R.rect(x+10,y+12,17,4,"F1C965")
+    end
+end
+function R.companion(x,y,facing,time)
+    love.graphics.push(); love.graphics.translate(math.floor(x),math.floor(y)); love.graphics.scale(facing,1)
+    R.rect(-9,2,17,13,"E6B562",3); R.rect(-2,-4,13,14,"F1C965",3)
+    R.rect(6,-1,3,3,"243D35"); R.rect(10,3,6,4,"CC7B3B")
+    R.rect(-8,math.sin(time*10)>0 and 0 or 6,8,7,"D6A34A",2)
+    R.rect(-5,15,5,3,"CC7B3B"); R.rect(3,15,5,3,"CC7B3B")
+    love.graphics.pop()
+end
 function R.world(game,save)
     local p=R.background(game.level.biome,game.camera,game.time)
     love.graphics.push(); love.graphics.translate(-math.floor(game.camera),0)
@@ -208,7 +248,8 @@ function R.world(game,save)
     end
     for _,d in ipairs(game.level.decorations) do
         if d.x>game.camera-20 and d.x<game.camera+980 then
-            if game.level.biome=="halloween" and d.variant%2==0 then
+            if d.kind then R.decoration(d,game.time)
+            elseif game.level.biome=="halloween" and d.variant%2==0 then
                 R.rect(d.x,d.y-17,21,16,"CC8A43",3); R.rect(d.x+9,d.y-22,4,6,p.ground)
                 R.rect(d.x+4,d.y-12,4,4,"3A4335"); R.rect(d.x+14,d.y-12,4,4,"3A4335")
             else
@@ -238,6 +279,14 @@ function R.world(game,save)
     R.rect(goal.x+7,goal.y+89,24,4,p.ink)
     for _,e in ipairs(game.level.enemies) do if math.abs(e.x-game.camera-480)<550 then R.enemy(e,game.time) end end
     local player=game.player
+    if save.equipped.companion=="chick" then R.companion(game.companion.x,game.companion.y,player.facing,game.time) end
+    if player.gliding then
+        local cx=player.x+player.w/2; local y=player.y-46
+        R.rect(cx-28,y+9,56,10,"77976B",3); R.rect(cx-20,y,40,14,"84A073",3)
+        R.rect(cx-7,y-5,14,16,"A8C0A0",2)
+        R.color("806C44"); love.graphics.setLineWidth(2)
+        love.graphics.line(cx-25,y+18,cx-8,player.y+18); love.graphics.line(cx+25,y+18,cx+8,player.y+18)
+    end
     if player.invincible==0 or math.floor(player.invincible*12)%2==0 then
         R.sloth(player.x+player.w/2,player.y+player.h,61,player.facing,game.time,save.equipped,player.onGround and player.vx~=0,player.sitting)
     end
@@ -271,6 +320,10 @@ function R.world(game,save)
     R.coin(548,48,game.time,1.1); R.text(tostring(save.coins),562,36,20)
     R.rect(637,41,10,15,"CC7B3B"); R.text(string.format("%02d",save.ammo),658,36,20)
     R.rect(733,44,86,5,"E3E6D8"); R.rect(733,44,86*math.min(1,player.x/game.level.width),5,"75916E")
+    if save.equipped.magnet=="magnet" then
+        R.rect(21,86,132,22,"FBF8EE",4)
+        R.text("MAGNET  "..math.ceil(player.magnetTime).."s",31,90,11,"8C783F")
+    end
     if game.noticeTime and game.noticeTime>0 then
         R.rect(190,99,580,32,"FBF8EE",6); R.text(game.notice,200,107,13,"516950",560,"center")
     end
@@ -291,7 +344,7 @@ function R.menu(save,time)
     R.text("SUPER",44,136,38)
     R.text("SID",40,165,88)
     R.text("Small steps. A great big adventure.",49,278,20)
-    R.text("Fifteen trails. A pocketful of sparks.\nOne very determined sloth.",50,316,16,"697E69")
+    R.text(Levels.count.." trails. A pocketful of sparks.\nOne very determined sloth.",50,316,16,"697E69")
     R.rect(622,360,230,97,"456A52"); R.rect(622,360,230,7,"84A073")
     R.rect(578,393,44,64,"456A52"); R.rect(578,393,44,7,"84A073")
     R.sloth(730,361,179,1,time,save.equipped,true)
@@ -323,14 +376,14 @@ function R.shop(save,items,selected,time,message)
         R.text(item.category,x+12,y+10,10,"819071")
         R.text(item.name,x+12,y+26,18)
         R.text(item.description,x+12,y+51,11,"74816D",188)
-        local label=equipped and "EQUIPPED" or save.owned[item.id] and "OWNED / EQUIP" or item.cost.." COINS"
+        local label=item.kind=="decoration" and save.owned[item.id] and "UNLOCKED / EDITOR" or equipped and "EQUIPPED" or save.owned[item.id] and "OWNED / EQUIP" or item.cost.." COINS"
         R.text(label,x+12,y+82,11,equipped and "567653" or "B18736")
     end
     R.text(message or "ARROWS  SELECT    ENTER  BUY / EQUIP\nPGUP / PGDN  MORE FINDS    ESC  BACK",33,486,11,"6B7F66",550)
     R.text(page.." / "..Shop.pageCount(),649,492,12,"6B7F66",50,"center")
 end
 function R.routeCard(index)
-    return {x=32+((index-1)%5)*181,y=133+math.floor((index-1)/5)*111,w=169,h=101}
+    return {x=32+((index-1)%5)*181,y=133+math.floor((index-1)/5)*65,w=169,h=60}
 end
 function R.route(save,names,time)
     R.panel("Every adventure starts with a step.","Follow Sid's trail. Finish each level to unlock the next.")
@@ -339,9 +392,9 @@ function R.route(save,names,time)
         local x,y=card.x,card.y
         local unlocked=i<=save.unlocked
         R.rect(x,y,card.w,card.h,unlocked and "E4E8D9" or "EAE8DD",6)
-        R.text(string.format("%02d",i),x+13,y+7,24,unlocked and "456A52" or "B8BEAE")
-        R.text(name,x+13,y+39,13,unlocked and "243D35" or "9DA692",143)
-        R.text(not unlocked and "LOCKED" or (i<save.unlocked or save.completed and i==Levels.count) and "COMPLETED" or "READY TO EXPLORE",x+13,y+83,10,"819071")
+        R.text(string.format("%02d",i),x+8,y+7,14,unlocked and "456A52" or "B8BEAE")
+        R.text(name,x+35,y+7,13,unlocked and "243D35" or "9DA692",126)
+        R.text(not unlocked and "LOCKED" or (i<save.unlocked or save.completed and i==Levels.count) and "COMPLETED" or "READY TO EXPLORE",x+8,y+44,10,"819071")
     end
 end
 return R

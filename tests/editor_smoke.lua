@@ -1,6 +1,8 @@
 local Custom=require("src.custom_levels")
 local Editor=require("src.editor")
 local R=require("src.render")
+local Shop=require("src.shop")
+local Deco=require("src.decorations")
 local function press(app,label)
     for _,b in ipairs(app.buttons) do
         if b.label==label and not b.disabled then b.action(); return end
@@ -91,6 +93,39 @@ return function(n,app,save,api)
     elseif n==256 then
         love.keypressed("backspace"); assert(app.dialog.value=="Trail ")
         love.keypressed("escape"); assert(not app.dialog and app.editor.level.name=="My little adventure")
-        api.screenshotDone(); love.event.quit(0)
+        love.keypressed("escape"); assert(app.state=="menu")
+    elseif n==264 then press(app,"Shop"); save.coins=1000
+    elseif n==272 then
+        love.keypressed("pagedown"); assert(Shop.page(app.shopSelection)==3)
+        app.shopSelection=26; love.keypressed("return"); assert(save.owned.deco_trail)
+        love.keypressed("left"); love.keypressed("return"); assert(save.owned.deco_crystals)
+    elseif n==280 then
+        love.keypressed("pageup")
+        for _=1,8 do love.keypressed("right") end
+        assert(app.shopSelection==21)
+        love.keypressed("return"); assert(save.equipped.magnet=="magnet")
+        love.keypressed("right"); love.keypressed("return"); assert(save.equipped.parachute=="parachute")
+        love.keypressed("right"); love.keypressed("return"); assert(save.equipped.companion=="chick")
+        love.keypressed("right"); love.keypressed("return"); assert(save.owned.deco_woodland)
+    elseif n==288 then love.keypressed("escape"); assert(app.state=="menu")
+    elseif n==296 then press(app,"Level editor")
+    elseif n==304 then
+        press(app,"Decor: buy packs")
+        local e=app.editor; assert(e.decoration=="mushroom")
+        for i,id in ipairs(Deco.available(save.owned)) do
+            e.decoration=id; draw(e,"decoration",i*96+96,432)
+        end
+        e.filename="decor-smoke.sidlevel"; press(app,"Save")
+        local stored=assert(Custom.load(e.filename)); assert(#stored.decorations==9)
+    elseif n==312 then press(app,"Test"); assert(#api.game().level.decorations==9)
+    elseif n==320 then
+        local g=api.game(); g.player.y=210; g.player.vy=170; g.player.onGround=false
+        app.smokeGlide=true; g:update(1/60,{glide=true}); assert(g.player.gliding)
+    elseif n==336 then app.smokeGlide=false; api.start(16)
+    elseif n==344 then api.start(17)
+    elseif n==352 then api.start(18)
+    elseif n==360 then api.start(25)
+    elseif n==368 then api.route()
+    elseif n==376 then api.screenshotDone(); love.event.quit(0)
     end
 end

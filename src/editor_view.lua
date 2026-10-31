@@ -19,10 +19,10 @@ function View.editor(e,time,button,actions)
     button("",176,84,340,32,function() actions.rename("name") end,true)
     button("",526,84,190,32,function() actions.rename("author") end,true)
     -- Field contents are drawn by main after buttons, so they remain visible.
-    R.text("Click name or author to edit",728,93,11,"718369")
+    button(e.decoration and ("Decor: "..e.decoration) or "Decor: buy packs",728,84,216,32,function() e:cycleDecoration() end,true)
     for i,tool in ipairs(Editor.tools) do
-        local shortcut=i<=9 and tostring(i) or i==10 and "0" or i==11 and "C" or "E"
-        button(shortcut.."  "..tool.label,16,128+(i-1)*27,144,24,function() e.tool=tool.id end,e.tool~=tool.id)
+        local shortcut=i<=9 and tostring(i) or i==10 and "0" or i==11 and "C" or i==12 and "E" or "V"
+        button(shortcut.."  "..tool.label,16,128+(i-1)*25,144,23,function() e.tool=tool.id end,e.tool~=tool.id)
     end
     local v=Editor.view
     love.graphics.setScissor(v.x,v.y,v.w,v.h)
@@ -40,6 +40,7 @@ function View.editor(e,time,button,actions)
         R.rect(p.x,p.y,p.w,p.h,p.kind=="ground" and "456A52" or "628575")
         R.rect(p.x,p.y,p.w,6,p.kind=="ground" and "84A073" or "D9BD75")
     end
+    for _,d in ipairs(e.level.decorations) do R.decoration(d,time) end
     for _,c in ipairs(e.level.coins) do R.coin(c.x+6,c.y+8,time) end
     for _,a in ipairs(e.level.ammo) do R.rect(a.x,a.y,a.w,a.h,"C38746",3); R.text("+",a.x+3,a.y+1,16,"FFF3D3") end
     for _,e2 in ipairs(e.level.enemies) do

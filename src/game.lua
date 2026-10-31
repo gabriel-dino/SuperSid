@@ -33,7 +33,7 @@ end
 function Game:resetPlayer()
     local maxHealth=self.save.equipped.charm=="heart" and 4 or 3
     self.player={x=self.level.spawn.x,y=self.level.spawn.y,w=23,h=43,vx=0,vy=0,facing=1,health=maxHealth,maxHealth=maxHealth,
-        onGround=false,coyote=0,invincible=0,fireTimer=0,sitting=false,
+        onGround=false,coyote=0,invincible=0,fireTimer=0,sitting=false,magnetTime=30,gliding=false,
         bananaShield=self.save.equipped.charm=="shield" and 1 or 0}
     if self.save.checkpoint and self.level.checkpoint then
         self.player.x=self.level.checkpoint.x
@@ -43,6 +43,7 @@ function Game:resetPlayer()
     self.camera=math.max(0,math.min(self.level.width-960,self.player.x-250))
     self.shots={}; self.enemyShots={}; self.particles={}; self.time=0; self.jumpBuffer=0
     self.finished=false; self.dead=false; self.earned=0; self.kills=0
+    self.companion={x=self.player.x-28,y=self.player.y-12}
     self.save.ammo=math.max(5,self.save.ammo)
     for _,e in ipairs(self.level.enemies) do e.facing=Actors.facing(e.vx) end
     for _,items in ipairs({self.level.coins,self.level.ammo}) do
@@ -122,6 +123,8 @@ function Game:update(dt,input)
     local top=p.y
     local bottom=p.y+p.h
     p.vy=p.vy+1260*dt
+    p.gliding=self.save.equipped.parachute=="parachute" and input.glide==true and p.vy>0 and not p.onGround
+    if p.gliding then p.vy=math.min(p.vy,95) end
     p.y=p.y+p.vy*dt
     p.onGround=false; p.platform=nil
     local landing
@@ -135,11 +138,22 @@ function Game:update(dt,input)
             if not ceiling or tile.y+tile.h>ceiling.y+ceiling.h then ceiling=tile end
         end
     end
-    if landing then p.y=landing.y-p.h; p.vy=0; p.onGround=true; p.platform=landing end
+    if landing then p.y=landing.y-p.h; p.vy=0; p.onGround=true; p.platform=landing; p.gliding=false end
     if ceiling then p.y=ceiling.y+ceiling.h; p.vy=0 end
     p.sitting=input.sit==true and p.onGround and direction==0
     if p.y>590 then p.health=0; self.dead=true; self.audio.play("hurt") end
+    local magnet=self.save.equipped.magnet=="magnet" and p.magnetTime>0
+    if magnet then p.magnetTime=math.max(0,p.magnetTime-dt) end
     for _,coin in ipairs(self.level.coins) do
+        if magnet and not coin.taken then
+            local dx=p.x+p.w/2-(coin.x+coin.w/2)
+            local dy=p.y+p.h/2-(coin.y+coin.h/2)
+            local distance=math.sqrt(dx*dx+dy*dy)
+            if distance>0 and distance<=120 then
+                local step=math.min(distance,280*dt)
+                coin.x=coin.x+dx/distance*step; coin.y=coin.y+dy/distance*step
+            end
+        end
         if not coin.taken and overlaps(p,coin) then
             coin.taken=true; self.save.collected[coin.id]=true
             self.save.coins=self.save.coins+1; self.earned=self.earned+1
@@ -243,6 +257,12 @@ function Game:update(dt,input)
             if self.level.index==Levels.count then self.save.completed=true
             else self.save.level=self.level.index+1 end
         end
+    end
+    if self.save.equipped.companion=="chick" then
+        local targetX=p.x+p.w/2-p.facing*38
+        local targetY=p.y+9+math.sin(self.time*5)*6
+        self.companion.x=self.companion.x+(targetX-self.companion.x)*math.min(1,dt*6)
+        self.companion.y=self.companion.y+(targetY-self.companion.y)*math.min(1,dt*6)
     end
     local target=math.max(0,math.min(self.level.width-960,p.x-300))
     self.camera=self.camera+(target-self.camera)*math.min(1,dt*7)

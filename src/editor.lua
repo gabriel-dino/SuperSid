@@ -1,4 +1,5 @@
 local Custom=require("src.custom_levels")
+local Deco=require("src.decorations")
 local Editor={grid=24,view={x=176,y=128,w=768,h=324,scale=.6}}
 Editor.tools={
     {id="ground",label="Terrain",hint="Drag a rectangle of solid terrain."},
@@ -12,12 +13,15 @@ Editor.tools={
     {id="spawn",label="Sid start",hint="Click near a surface to move Sid's starting point."},
     {id="goal",label="Finish flag",hint="Click near a surface to move the finish flag."},
     {id="checkpoint",label="Checkpoint",hint="Click near a surface to place the checkpoint."},
-    {id="erase",label="Eraser",hint="Click an object to remove it. Right-click also erases."}
+    {id="erase",label="Eraser",hint="Click an object to remove it. Right-click also erases."},
+    {id="decoration",label="Decor",hint="Choose a decoration above the map, then click to place it. Packs are sold in the Shop."}
 }
 local function snap(n) return math.floor((n+.000001)/24)*24 end
-function Editor.new(level,filename)
+function Editor.new(level,filename,owned)
     local e={level=Custom.copy(level or Custom.new()),filename=filename,tool="ground",camera=0,
-        undoStack={},redoStack={},dirty=false,message="Build a trail, save it, then share its .sidlevel file."}
+        owned=owned or {},undoStack={},redoStack={},dirty=false,message="Build a trail, save it, then share its .sidlevel file."}
+    e.level.decorations=e.level.decorations or {}
+    e.decoration=Deco.available(e.owned)[1]
     return setmetatable(e,{__index=Editor})
 end
 function Editor:remember()
@@ -54,7 +58,7 @@ function Editor:erase(x,y)
     local function hit(o) return o and x>=o.x-4 and x<=o.x+(o.w or 23)+4 and y>=o.y-4 and y<=o.y+(o.h or 43)+4 end
     if hit(self.level.checkpoint) then self.level.checkpoint=nil; return true end
     -- Start and finish are moved with their tools rather than removed.
-    for _,key in ipairs({"enemies","ammo","coins","platforms"}) do
+    for _,key in ipairs({"decorations","enemies","ammo","coins","platforms"}) do
         local items=self.level[key]
         for i=#items,1,-1 do if hit(items[i]) then table.remove(items,i); return true end end
     end
@@ -63,6 +67,17 @@ end
 function Editor:place(tool,x,y)
     local l=self.level
     local gx=snap(x); local gy=snap(y)
+    if tool=="decoration" then
+        local pack=Deco.packFor(self.decoration)
+        if not pack or not self.owned["deco_"..pack.id] then
+            self.message="Buy a decoration pack in the Shop, then use the Decor selector above the map."; return false
+        end
+        if #l.platforms+#l.coins+#l.ammo+#l.enemies+#l.decorations>=Custom.maxObjects then self.message="The level already has 2000 objects."; return false end
+        local size=Deco.sizes[self.decoration]; gx=math.min(gx,l.width-size[1])
+        l.decorations[#l.decorations+1]={kind=self.decoration,x=gx,
+            y=math.max(0,math.min(540-size[2],self:surface(gx,gy,size[1])-size[2])),w=size[1],h=size[2]}
+        return true
+    end
     if tool=="spawn" or tool=="goal" or tool=="checkpoint" then
         local w=tool=="spawn" and 23 or tool=="goal" and 42 or 18
         local h=tool=="spawn" and 43 or tool=="goal" and 92 or 60
@@ -79,7 +94,7 @@ function Editor:place(tool,x,y)
     local py=tool=="coin" and gy+4 or tool=="bird" and gy or self:surface(px,gy,size[1])-size[2]
     py=math.max(0,math.min(540-size[2],py))
     for _,item in ipairs(l[key]) do if item.x==px and item.y==py and item.kind==(key=="enemies" and tool or nil) then return false end end
-    local count=#l.platforms+#l.coins+#l.ammo+#l.enemies
+    local count=#l.platforms+#l.coins+#l.ammo+#l.enemies+#l.decorations
     if count>=Custom.maxObjects then self.message="The level already has 2000 objects."; return false end
     l[key][#l[key]+1]={x=px,y=py,w=size[1],h=size[2],kind=key=="enemies" and tool or nil}
     return true
@@ -108,7 +123,7 @@ end
 function Editor:finish()
     local r=self:rectangle()
     if r then
-        if #self.level.platforms+#self.level.coins+#self.level.ammo+#self.level.enemies<Custom.maxObjects then
+        if #self.level.platforms+#self.level.coins+#self.level.ammo+#self.level.enemies+#self.level.decorations<Custom.maxObjects then
             self.level.platforms[#self.level.platforms+1]=r
         else self.message="The level already has 2000 objects." end
     end
@@ -118,7 +133,7 @@ function Editor:resize(delta)
     local width=math.max(960,math.min(15360,self.level.width+delta))
     if width==self.level.width then return end
     if width<self.level.width then
-        for _,key in ipairs({"platforms","coins","ammo","enemies"}) do
+        for _,key in ipairs({"platforms","coins","ammo","enemies","decorations"}) do
             for _,o in ipairs(self.level[key]) do
                 if o.x+o.w>width then self.message="Erase or shorten objects beyond the new edge first."; return end
             end
@@ -135,6 +150,14 @@ function Editor:theme()
     for i,b in ipairs(Custom.biomes) do
         if b==self.level.biome then self.level.biome=Custom.biomes[i%#Custom.biomes+1]; return end
     end
+end
+function Editor:cycleDecoration()
+    local available=Deco.available(self.owned)
+    if #available==0 then self.message="Buy Woodland, Crystal or Trail signs packs in the Shop (50 coins each)."; return end
+    for i,id in ipairs(available) do
+        if id==self.decoration then self.decoration=available[i%#available+1]; self.tool="decoration"; return end
+    end
+    self.decoration=available[1]; self.tool="decoration"
 end
 function Editor:save(asCopy)
     self:finish()

@@ -1,7 +1,7 @@
 local Levels=require("src.levels")
 local Save = {}
 function Save.defaults()
-    return {version=2,coins=0,ammo=5,level=1,unlocked=1,completed=false,owned={},equipped={},collected={},checkpoint=false,best={}}
+    return {version=3,coins=0,ammo=5,level=1,unlocked=1,completed=false,owned={},equipped={},collected={},checkpoint=false,best={}}
 end
 local function encode(value)
     if type(value)=="number" then return tostring(value)
@@ -33,7 +33,7 @@ local function read(path)
     else fn=load(contents,"save","t",{}) end
     if not fn then return nil end
     local ok,data=pcall(fn)
-    if not ok or type(data)~="table" or (data.version~=1 and data.version~=2) then return nil end
+    if not ok or type(data)~="table" or (data.version~=1 and data.version~=2 and data.version~=3) then return nil end
     local result=Save.defaults()
     for _,key in ipairs({"coins","ammo","level","unlocked"}) do
         local n=data[key]
@@ -52,6 +52,9 @@ local function read(path)
     if data.version==1 and result.completed then
         -- Former ten-level champions continue directly into the expansion.
         result.level=11; result.unlocked=math.max(11,result.unlocked)
+        result.completed=false; result.checkpoint=false; result.collected={}
+    elseif data.version==2 and result.completed then
+        result.level=16; result.unlocked=math.max(16,result.unlocked)
         result.completed=false; result.checkpoint=false; result.collected={}
     end
     return result
