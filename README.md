@@ -87,17 +87,60 @@ Saves live outside the repository in LÖVE's `hero-supersid` save directory, typ
 `%APPDATA%\LOVE\hero-supersid` on Windows. `progress.bak` provides recovery if the latest save is damaged.
 To reset everything, close the game and remove `progress.lua` and `progress.bak` from that directory.
 
+## Level editor and Contrib levels
+
+Open **Level editor** from the main menu to create a trail. Choose a tool on the left, then click or drag
+on the map. Terrain is solid; platforms can be jumped through from below. A 24-pixel grid keeps objects aligned.
+
+| Editor action | How |
+| --- | --- |
+| Add terrain | Select Terrain (1), then drag a rectangle |
+| Add platforms | Select Platform (2), then drag horizontally |
+| Add enemies | Select Monkey, Bird, Ice cube or Snowball (3–6), then click |
+| Add coins / ammo | Select Coins (7) and paint, or select Ammo (8) and click |
+| Set start / finish / checkpoint | Select Sid start (9), Finish flag (0) or Checkpoint (C), then click near a surface |
+| Remove an object | Select Eraser (E), or right-click an object |
+| Undo / redo | Buttons, Ctrl+Z / Ctrl+Y, or Ctrl+Shift+Z |
+| Pan through the level | Left / Right, A / D, mouse wheel or < / > buttons; Home / End for the edges |
+| Name and author | Click either text field at the top |
+| Change scenery or width | Theme and − / + buttons below the map |
+| Save / save a separate copy | Save / Save copy buttons, Ctrl+S / Ctrl+Shift+S |
+| Test with the actual game physics | Test button or F5; pause and choose Back to editor to continue editing |
+
+Walking enemies snap to nearby platform surfaces and patrol their supporting platform. Birds fly at the height
+where they are placed. Move objects by erasing and placing them again. The starting template has a continuous
+floor: erase it and draw separate terrain rectangles to make gaps. Shrinking a map requires moving or removing
+objects beyond its new edge first. A level needs a supported start and finish before saving or testing;
+the checkpoint is optional. The game prompts before leaving or closing an editor with unsaved changes.
+
+**Save** creates a `.sidlevel` file in the `levels` subfolder of LÖVE's save directory, usually
+`%APPDATA%\LOVE\hero-supersid\levels` on Windows. The editor's **Folder** button opens that location.
+Send that file to another player to share your level. **Save copy** creates a separate file without overwriting
+the original. Levels saved in the editor appear in **Contrib levels**, where they can be played or reopened for editing.
+
+To add a level made by someone else, choose **Contrib levels → Import level** and drop their `.sidlevel` file
+onto the window. Alternatively, use **Open folder**, copy the files into it and press **Refresh**.
+Imports receive a unique filename and do not overwrite existing levels. Invalid files are skipped with a message.
+These are Super Sid level files; SuperTux `.stl` files use a different format.
+
+Custom play uses a separate copy of your equipment and progress. Its collected coins, kill bonuses, ammo,
+checkpoints and retries work during that session; campaign coins, unlocks and saves stay separate.
+The editor validates object bounds and basic marker/enemy placement; use Test to check that your route is beatable.
+Shared files contain data only and are parsed without executing Lua. Format details are in [LEVELS.md](docs/LEVELS.md).
+
 ## Development and verification
 
 ```sh
 lua tests/run.lua
 ```
 
-The **22 integration tests** check geometry and full traversal of all fifteen trails at **30 / 60 / 144 FPS**,
+The **30 integration tests** check geometry and full traversal of all fifteen trails at **30 / 60 / 144 FPS**,
 two rewarded raised tiers on every island, every raised platform's jump reachability from its preceding step,
 stable standing/sitting at those frame rates, facing and patrol turns,
 ammunition, combat, kill rewards for stomps and every fire type, damage immunity, banana limits and collisions, progression, checkpoints, pickup persistence,
 shop balances and equipment, new gear and special fire, ice enemies, save recovery, and migration of old saves.
+They also cover level-file round trips and validation, imports and filename collisions, editor drawing and history,
+failed saves, custom checkpoints and retries, campaign isolation, and solid terrain versus one-way platforms.
 
 The installed engine can check rendering and UI interactions directly from source:
 
@@ -106,8 +149,9 @@ The installed engine can check rendering and UI interactions directly from sourc
 ```
 
 The smoke run checks input callbacks, shop pagination and new purchases, Sid climbing both raised tiers and sitting at the top,
-and renders twelve screenshots, including a facing comparison for Sid and all four enemy types.
-It writes screenshots to the LÖVE save directory's `smoke` folder and exits.
+editor mouse drawing and text input, saving and testing, imports, the Contrib levels list, custom results and retries.
+It renders 32 screenshots, including the editor, import and unsaved-change dialogs, and custom gameplay.
+It writes screenshots to the LÖVE save directory's `smoke` folder, writes test levels only inside `smoke/levels`, and exits.
 It uses temporary in-memory progress and does not change your campaign save.
 
 | File | Purpose |
@@ -116,11 +160,15 @@ It uses temporary in-memory progress and does not change your campaign save.
 | `src/game.lua` | Movement, collisions, combat, pickups, checkpoints, progression |
 | `src/actors.lua` | Shared facing convention for the hero and enemies |
 | `src/levels.lua` | Fifteen deterministic level layouts, difficulty, and themes |
+| `src/custom_levels.lua` | Data-only level format, validation, library, import/export and runtime conversion |
+| `src/editor.lua` | Grid tools, placement, erasing, undo/redo, resizing and saving |
+| `src/editor_view.lua` | Editor and Contrib levels interfaces |
 | `src/shop.lua` | Catalog, purchases, equipment |
 | `src/render.lua` | Pixel scenery, character rendering, HUD, menus |
 | `src/save.lua` | Persistent progress, validation, backup recovery |
 | `src/audio.lua` | Original synthesized sound effects |
 | `assets/sid.png` | Generated transparent Sid sprite |
+| `assets/DejaVuSans.ttf` | Fallback font for extended characters, including Romanian; license included alongside it |
 | `docs/ART.md` | Image-generation prompt and asset provenance |
 
 This repository contains runnable source. No executable distributions have been built or committed.
@@ -129,4 +177,4 @@ from Git, and requires Windows x64 single-file executable, Android APK, and Linu
 whenever distribution builds are made.
 
 Local Git author: **Gabriel Dino** `<sirius.gabriel2015@gmail.com>`.
-No remote repository is configured.
+GitHub repository: [gabriel-dino/SuperSid](https://github.com/gabriel-dino/SuperSid).

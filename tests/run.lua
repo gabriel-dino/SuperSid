@@ -3,7 +3,19 @@ package.path="./?.lua;./?/init.lua;"..package.path
 local files={}
 love={filesystem={
     read=function(path) return files[path] end,
-    write=function(path,value) files[path]=value; return true end
+    write=function(path,value) files[path]=value; return true end,
+    createDirectory=function() return true end,
+    getInfo=function(path)
+        if files[path] then return {type="file",size=#files[path]} end
+        for name in pairs(files) do if name:sub(1,#path+1)==path.."/" then return {type="directory"} end end
+    end,
+    getDirectoryItems=function(path)
+        local names={}
+        for name in pairs(files) do
+            if name:sub(1,#path+1)==path.."/" then names[#names+1]=name:sub(#path+2) end
+        end
+        return names
+    end
 }}
 local Save=require("src.save")
 local Shop=require("src.shop")
@@ -373,4 +385,5 @@ test("shop catalog spans two reachable pages with unique items",function()
     local ids={}
     for _,item in ipairs(Shop.items) do assert(not ids[item.id]); ids[item.id]=true end
 end)
+require("tests.editor")(test)
 print("\n"..passed.." integration tests passed.")

@@ -1,5 +1,6 @@
 local Levels=require("src.levels")
 local Actors=require("src.actors")
+local Custom=require("src.custom_levels")
 local Game={}
 Game.__index=Game
 local function overlaps(a,b)
@@ -10,19 +11,36 @@ function Game.new(save,audio)
     return setmetatable({save=save,audio=audio,time=0,particles={},shots={},camera=0,touch={},jumpBuffer=0},Game)
 end
 function Game:start(index,retry)
+    if self.campaignSave then self.save=self.campaignSave; self.campaignSave=nil end
+    self.custom=false; self.sourceCustom=nil
     if not retry and index~=self.save.level then self.save.collected={}; self.save.checkpoint=false end
     self.save.level=index
     self.level=Levels.create(index)
+    self:resetPlayer()
+end
+function Game:startCustom(level,retry)
+    local runtime,message=Custom.runtime(level)
+    if not runtime then return nil,message end
+    if not self.campaignSave then self.campaignSave=self.save end
+    if not retry then
+        self.save=Custom.copy(self.campaignSave)
+        self.save.collected={}; self.save.checkpoint=false
+    end
+    self.custom=true; self.sourceCustom=Custom.copy(level); self.level=runtime
+    self:resetPlayer()
+    return true
+end
+function Game:resetPlayer()
     local maxHealth=self.save.equipped.charm=="heart" and 4 or 3
-    self.player={x=55,y=350,w=23,h=43,vx=0,vy=0,facing=1,health=maxHealth,maxHealth=maxHealth,
+    self.player={x=self.level.spawn.x,y=self.level.spawn.y,w=23,h=43,vx=0,vy=0,facing=1,health=maxHealth,maxHealth=maxHealth,
         onGround=false,coyote=0,invincible=0,fireTimer=0,sitting=false,
         bananaShield=self.save.equipped.charm=="shield" and 1 or 0}
-    if self.save.checkpoint then
+    if self.save.checkpoint and self.level.checkpoint then
         self.player.x=self.level.checkpoint.x
         self.player.y=self.level.checkpoint.y-10
         self.level.checkpoint.active=true
     end
-    self.camera=math.max(0,self.player.x-250)
+    self.camera=math.max(0,math.min(self.level.width-960,self.player.x-250))
     self.shots={}; self.enemyShots={}; self.particles={}; self.time=0; self.jumpBuffer=0
     self.finished=false; self.dead=false; self.earned=0; self.kills=0
     self.save.ammo=math.max(5,self.save.ammo)
@@ -101,17 +119,24 @@ function Game:update(dt,input)
             if p.vx>0 then p.x=tile.x-p.w elseif p.vx<0 then p.x=tile.x+tile.w end
         end
     end
+    local top=p.y
     local bottom=p.y+p.h
     p.vy=p.vy+1260*dt
     p.y=p.y+p.vy*dt
     p.onGround=false; p.platform=nil
     local landing
+    local ceiling
     for _,tile in ipairs(self.level.platforms) do
         if p.vy>=0 and p.x+p.w>tile.x and p.x<tile.x+tile.w and bottom<=tile.y+1 and p.y+p.h>=tile.y then
             if not landing or tile.y<landing.y then landing=tile end
         end
+        if p.vy<0 and tile.kind=="ground" and p.x+p.w>tile.x and p.x<tile.x+tile.w and
+            top>=tile.y+tile.h-1 and p.y<=tile.y+tile.h then
+            if not ceiling or tile.y+tile.h>ceiling.y+ceiling.h then ceiling=tile end
+        end
     end
     if landing then p.y=landing.y-p.h; p.vy=0; p.onGround=true; p.platform=landing end
+    if ceiling then p.y=ceiling.y+ceiling.h; p.vy=0 end
     p.sitting=input.sit==true and p.onGround and direction==0
     if p.y>590 then p.health=0; self.dead=true; self.audio.play("hurt") end
     for _,coin in ipairs(self.level.coins) do
@@ -204,18 +229,20 @@ function Game:update(dt,input)
         if q.life<=0 then table.remove(self.particles,i) end
     end
     local checkpoint=self.level.checkpoint
-    if not checkpoint.active and overlaps(p,checkpoint) then
+    if checkpoint and not checkpoint.active and overlaps(p,checkpoint) then
         checkpoint.active=true; self.save.checkpoint=true
         self.notice="Checkpoint! A little closer to home."; self.noticeTime=3
         self.audio.play("ammo")
     end
     if not self.dead and overlaps(p,self.level.goal) then
         self.finished=true; self.audio.play("win")
-        self.save.best[self.level.index]=math.max(tonumber(self.save.best[self.level.index]) or 0,self.earned)
-        self.save.unlocked=math.max(self.save.unlocked,math.min(Levels.count,self.level.index+1))
-        self.save.checkpoint=false; self.save.collected={}
-        if self.level.index==Levels.count then self.save.completed=true
-        else self.save.level=self.level.index+1 end
+        if not self.custom then
+            self.save.best[self.level.index]=math.max(tonumber(self.save.best[self.level.index]) or 0,self.earned)
+            self.save.unlocked=math.max(self.save.unlocked,math.min(Levels.count,self.level.index+1))
+            self.save.checkpoint=false; self.save.collected={}
+            if self.level.index==Levels.count then self.save.completed=true
+            else self.save.level=self.level.index+1 end
+        end
     end
     local target=math.max(0,math.min(self.level.width-960,p.x-300))
     self.camera=self.camera+(target-self.camera)*math.min(1,dt*7)

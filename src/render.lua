@@ -28,8 +28,14 @@ function R.text(s,x,y,size,c,width,align)
     else love.graphics.print(s,math.floor(x),math.floor(y)) end
 end
 function R.load()
-    R.fonts={}
-    for _,size in ipairs({10,11,12,13,14,16,18,20,24,28,32,38,48,64,88}) do R.fonts[size]=love.graphics.newFont(size) end
+    R.fonts={}; R.fallbacks={}
+    for _,size in ipairs({10,11,12,13,14,16,18,20,24,28,32,38,48,64,88}) do
+        R.fonts[size]=love.graphics.newFont(size)
+        if love.filesystem.getInfo("assets/DejaVuSans.ttf") then
+            R.fallbacks[size]=love.graphics.newFont("assets/DejaVuSans.ttf",size)
+            R.fonts[size]:setFallbacks(R.fallbacks[size])
+        end
+    end
     if love.filesystem.getInfo("assets/sid.png") then
         local data=love.image.newImageData("assets/sid.png")
         R.sprite=love.graphics.newImage(data); R.sprite:setFilter("nearest","nearest")
@@ -221,8 +227,10 @@ function R.world(game,save)
         end
     end
     local cp=game.level.checkpoint
-    R.rect(cp.x,cp.y,3,60,p.ink)
-    R.rect(cp.x+3,cp.y,25,17,cp.active and "DBAB4F" or p.far)
+    if cp then
+        R.rect(cp.x,cp.y,3,60,p.ink)
+        R.rect(cp.x+3,cp.y,25,17,cp.active and "DBAB4F" or p.far)
+    end
     local goal=game.level.goal
     R.rect(goal.x+16,goal.y,4,92,p.ink)
     R.rect(goal.x+20,goal.y,39,26,"D9AB4F")
@@ -249,9 +257,11 @@ function R.world(game,save)
     -- HUD stays readable in every biome.
     R.rect(20,18,920,62,"FBF8EE",10)
     R.rect(37,33,36,32,"E8EDDE",5)
-    R.text(string.format("%02d",game.level.index),41,35,20)
+    R.text(game.custom and "C" or string.format("%02d",game.level.index),41,35,20)
+    love.graphics.setScissor(85,23,335,29)
     R.text(game.level.name,85,29,18)
-    R.text("THE GREAT LITTLE ADVENTURE",86,53,10,"7D8C7E")
+    love.graphics.setScissor()
+    R.text(game.custom and "CONTRIB LEVEL / PRACTICE COINS" or "THE GREAT LITTLE ADVENTURE",86,53,10,"7D8C7E")
     for i=1,player.maxHealth do
         local x=435+(i-1)*21
         local col=i<=player.health and "BE7257" or "E0DFD1"
@@ -265,7 +275,8 @@ function R.world(game,save)
         R.rect(190,99,580,32,"FBF8EE",6); R.text(game.notice,200,107,13,"516950",560,"center")
     end
     R.rect(0,505,960,35,p.sky)
-    R.text("A D / ARROWS   WALK      SPACE   JUMP      S / DOWN   SIT      ALT / X   FIRE      B   SHOP      ESC   PAUSE",20,516,11,p.ink,920,"center")
+    R.text(game.custom and "A D / ARROWS   WALK      SPACE   JUMP      S / DOWN   SIT      ALT / X   FIRE      ESC   PAUSE" or
+        "A D / ARROWS   WALK      SPACE   JUMP      S / DOWN   SIT      ALT / X   FIRE      B   SHOP      ESC   PAUSE",20,516,11,p.ink,920,"center")
 end
 function R.button(button,hover,focus)
     local active=hover or focus
