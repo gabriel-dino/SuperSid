@@ -384,12 +384,15 @@ test("legacy champions unlock level eleven without losing coins or purchases",fu
     s=Save.load(); assert(s.level==6 and s.checkpoint and s.collected.coin1 and s.coins==22)
 end)
 test("shop catalog spans three reachable pages with unique items",function()
-    assert(#Shop.items==26 and Shop.pageCount()==3)
+    assert(#Shop.items==36 and Shop.pageCount()==3)
     assert(Shop.page(1)==1 and Shop.page(12)==1 and Shop.page(13)==2 and Shop.page(20)==2)
     assert(Shop.page(25)==3 and Shop.page(26)==3)
+    assert(Shop.page(36)==3)
     local ids={}
     for _,item in ipairs(Shop.items) do assert(not ids[item.id]); ids[item.id]=true end
 end)
 require("tests.editor")(test)
 require("tests.expansion")(test)
+require("tests.animation")(test)
+require("tests.combat")(test)
 print("\n"..passed.." integration tests passed.")

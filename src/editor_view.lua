@@ -21,8 +21,8 @@ function View.editor(e,time,button,actions)
     -- Field contents are drawn by main after buttons, so they remain visible.
     button(e.decoration and ("Decor: "..e.decoration) or "Decor: buy packs",728,84,216,32,function() e:cycleDecoration() end,true)
     for i,tool in ipairs(Editor.tools) do
-        local shortcut=i<=9 and tostring(i) or i==10 and "0" or i==11 and "C" or i==12 and "E" or "V"
-        button(shortcut.."  "..tool.label,16,128+(i-1)*25,144,23,function() e.tool=tool.id end,e.tool~=tool.id)
+        local shortcut=i<=9 and tostring(i) or ({[10]="0",[11]="C",[12]="E",[13]="V",[14]="R",[15]="H",[16]="G"})[i]
+        button(shortcut.."  "..tool.label,16,128+(i-1)*20,144,19,function() e.tool=tool.id end,e.tool~=tool.id)
     end
     local v=Editor.view
     love.graphics.setScissor(v.x,v.y,v.w,v.h)
@@ -43,9 +43,11 @@ function View.editor(e,time,button,actions)
     for _,d in ipairs(e.level.decorations) do R.decoration(d,time) end
     for _,c in ipairs(e.level.coins) do R.coin(c.x+6,c.y+8,time) end
     for _,a in ipairs(e.level.ammo) do R.rect(a.x,a.y,a.w,a.h,"C38746",3); R.text("+",a.x+3,a.y+1,16,"FFF3D3") end
+    for _,heart in ipairs(e.level.hearts) do R.heart(heart.x,heart.y) end
+    for _,grenade in ipairs(e.level.grenades) do R.grenade(grenade.x,grenade.y) end
     for _,e2 in ipairs(e.level.enemies) do
         local enemy={}; for k,val in pairs(e2) do enemy[k]=val end
-        enemy.hp=enemy.kind=="icecube" and 2 or 1; enemy.vx=40
+        enemy.hp=(enemy.kind=="icecube" or enemy.kind=="eagle") and 2 or 1; enemy.vx=40
         R.enemy(enemy,time)
     end
     local s=e.level.spawn

@@ -2,7 +2,8 @@
 
 - Asset: `assets/sid.png`
 - Generated using the built-in `image_gen` tool with `transparent_background: true`.
-- The original alpha channel is preserved. The renderer finds the opaque bounds and draws the image with nearest-neighbor filtering.
+- The renderer finds the opaque bounds and draws the image with nearest-neighbor filtering. Walking uses a textured mesh with independent head, hand and foot transforms; idle and sitting use the original sprite. The animation phase advances with distance walked.
+- Hats follow the head transform; footwear follows the alternating feet. Animation is mirrored for leftward movement and pauses while idle, sitting, airborne or blocked. The walk-cycle preview in `docs/walk-preview.gif` was rendered by the game.
 - Scenery, enemies, accessories, UI, and particles are drawn directly in Lua. Sound effects are synthesized at startup.
 
 ## Final generation prompt

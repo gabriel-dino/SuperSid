@@ -1,6 +1,8 @@
 local Actors=require("src.actors")
 local Levels=require("src.levels")
 local Shop=require("src.shop")
+local Animation=require("src.sid_animation")
+local Skin=require("src.sid_mesh")
 local R={W=960,H=540}
 local palettes={
     meadow={sky="F4F0E5",mount="DDE4D6",far="C2D0BB",ground="456A52",edge="77976B",ink="243D35"},
@@ -27,15 +29,21 @@ function R.text(s,x,y,size,c,width,align)
     if width then love.graphics.printf(s,math.floor(x),math.floor(y),width,align or "left")
     else love.graphics.print(s,math.floor(x),math.floor(y)) end
 end
-function R.load()
+function R.loadFonts(density)
+    R.fontDensity=density or 1
     R.fonts={}; R.fallbacks={}
     for _,size in ipairs({10,11,12,13,14,16,18,20,24,28,32,38,48,64,88}) do
-        R.fonts[size]=love.graphics.newFont(size)
+        R.fonts[size]=love.graphics.newFont(size,"normal",R.fontDensity)
+        R.fonts[size]:setFilter("linear","linear")
         if love.filesystem.getInfo("assets/DejaVuSans.ttf") then
-            R.fallbacks[size]=love.graphics.newFont("assets/DejaVuSans.ttf",size)
+            R.fallbacks[size]=love.graphics.newFont("assets/DejaVuSans.ttf",size,"normal",R.fontDensity)
+            R.fallbacks[size]:setFilter("linear","linear")
             R.fonts[size]:setFallbacks(R.fallbacks[size])
         end
     end
+end
+function R.load(density)
+    R.loadFonts(density)
     if love.filesystem.getInfo("assets/sid.png") then
         local data=love.image.newImageData("assets/sid.png")
         R.sprite=love.graphics.newImage(data); R.sprite:setFilter("nearest","nearest")
@@ -49,6 +57,7 @@ function R.load()
         if maxX>minX and maxY>minY then
             R.spriteW=maxX-minX+1; R.spriteH=maxY-minY+1
             R.quad=love.graphics.newQuad(minX,minY,R.spriteW,R.spriteH,data:getWidth(),data:getHeight())
+            R.skin=Skin.new(R.sprite,minX,minY,R.spriteW,R.spriteH)
         else R.sprite=nil end
     end
 end
@@ -85,29 +94,38 @@ function R.background(biome,camera,time)
     end
     return p
 end
-function R.sloth(x,y,height,facing,time,equipped,moving,sitting)
+function R.sloth(x,y,height,facing,time,equipped,moving,sitting,walkPhase)
     equipped=equipped or {}
-    local tint=equipped.color=="mint" and "90C9A2" or equipped.color=="berry" and "BE9ABC" or equipped.color=="ember" and "E7B65B" or equipped.color=="arctic" and "91CFDF" or "FFFFFF"
+    local tint=equipped.color=="mint" and "90C9A2" or equipped.color=="berry" and "BE9ABC" or equipped.color=="ember" and "E7B65B" or equipped.color=="arctic" and "91CFDF" or equipped.color=="ocean" and "73A9E6" or equipped.color=="lavender" and "C4AFE8" or "FFFFFF"
+    moving=moving and not sitting
+    local phase=walkPhase or time*12
+    local pose=Animation.pose(phase,moving)
     love.graphics.push(); love.graphics.translate(math.floor(x),math.floor(y))
     -- Animate around the feet so standing or sitting never lifts Sid off a platform.
-    love.graphics.scale(Actors.facing(0,facing),sitting and .72 or moving and (1+math.sin(time*15)*.018) or 1)
+    love.graphics.scale(Actors.facing(0,facing),sitting and .72 or 1)
     if R.sprite then
         R.color(tint)
-        local scale=height/R.spriteH
-        love.graphics.draw(R.sprite,R.quad,-R.spriteW*scale/2,-height,0,scale,scale)
+        if moving then R.skin:draw(height,phase)
+        else
+            local scale=height/R.spriteH
+            love.graphics.draw(R.sprite,R.quad,-R.spriteW*scale/2,-height,0,scale,scale)
+        end
     else
         -- Also keeps development checkouts playable before art is available.
         local scale=height/58
         love.graphics.push(); love.graphics.scale(scale)
-        R.rect(-12,-31,23,24,"B7AA8A"); R.rect(-5,-48,10,28,"B7AA8A")
+        R.rect(-12,-31+pose.bodyY*58,23,24,"B7AA8A"); R.rect(-5,-48,10,28,"B7AA8A")
+        love.graphics.push(); love.graphics.translate(pose.headX*58,pose.headY*58); love.graphics.translate(0,-42); love.graphics.rotate(pose.headAngle); love.graphics.translate(0,42)
         R.rect(-8,-58,24,18,"D5C9A9"); R.rect(8,-51,12,7,"483E32")
         R.rect(-5,-57,6,6,"FFFFFF"); R.rect(9,-58,6,6,"FFFFFF")
         R.rect(-2,-55,3,3,"243D35"); R.rect(12,-56,3,3,"243D35")
-        R.rect(-10,-10,6,10,"B7AA8A"); R.rect(6,-10,6,10,"B7AA8A")
-        R.rect(-19,-29,8,5,"B7AA8A"); R.rect(10,-30,12,5,"B7AA8A")
+        love.graphics.pop()
+        R.rect(-10+pose.farFootX*58,-10+pose.farFootY*58,6,10,"B7AA8A"); R.rect(6+pose.nearFootX*58,-10+pose.nearFootY*58,6,10,"B7AA8A")
+        R.rect(-19+pose.farArm*18,-29,8,5,"B7AA8A"); R.rect(10+pose.nearArm*18,-30,12,5,"B7AA8A")
         love.graphics.pop()
     end
     local h=height
+    love.graphics.push(); love.graphics.translate(0,pose.bodyY*h)
     if equipped.outfit=="pumpkin" then
         R.rect(-h*.19,-h*.48,h*.4,h*.3,"D98A37",3)
         R.rect(-h*.1,-h*.43,4,4,"4C4632"); R.rect(h*.1,-h*.43,4,4,"4C4632")
@@ -116,16 +134,28 @@ function R.sloth(x,y,height,facing,time,equipped,moving,sitting)
         R.rect(-h*.12,-h*.71,h*.3,h*.075,"BC6C57")
         R.rect(-h*.18,-h*.67,h*.1,h*.25,"BC6C57")
         R.rect(-h*.18,-h*.44,h*.1,h*.035,"E4BB80")
+    elseif equipped.outfit=="raincoat" then
+        R.rect(-h*.18,-h*.35,h*.36,h*.23,"DDAE52",3)
+        R.rect(-h*.03,-h*.35,h*.025,h*.23,"B18736")
+        for i=0,2 do R.rect(h*.02,-h*.32+i*h*.06,h*.025,h*.025,"FFF3D3") end
     end
-    if equipped.boots=="boots" then
-        R.rect(-h*.18,-h*.06,h*.17,h*.06,"B99143")
-        R.rect(h*.05,-h*.06,h*.2,h*.06,"B99143")
+    love.graphics.pop()
+    if equipped.boots=="boots" or equipped.boots=="sprint" then
+        local color=equipped.boots=="sprint" and "BC6C57" or "B99143"
+        R.rect(-h*.18+pose.farFootX*h,-h*.06+pose.farFootY*h,h*.17,h*.06,color)
+        R.rect(h*.05+pose.nearFootX*h,-h*.06+pose.nearFootY*h,h*.2,h*.06,color)
     end
     if equipped.gun then
+        local aspect=R.sprite and R.spriteW/R.spriteH or .56
+        local armX,armY=Animation.vertex(.75,.76,pose,aspect)
+        love.graphics.push(); love.graphics.translate((armX-.25*aspect)*h,(armY+.24)*h)
         R.rect(h*.12,-h*.4,h*.32,h*.08,"435449")
         R.rect(h*.2,-h*.33,h*.07,h*.1,"6F7052")
         R.rect(h*.39,-h*.4,h*.06,h*.08,equipped.gun=="turbo" and "D6A34A" or "A5B191")
+        love.graphics.pop()
     end
+    local headX,headY,headAngle=Animation.head(pose,h,R.sprite and R.spriteW/R.spriteH or .56)
+    love.graphics.push(); love.graphics.translate(headX,-h+headY); love.graphics.rotate(headAngle); love.graphics.translate(0,h)
     if equipped.hat=="beanie" then
         R.rect(-h*.17,-h-2,h*.36,h*.12,"BE7358"); R.rect(-h*.21,-h+h*.09,h*.44,h*.06,"875242")
         R.rect(-3,-h-h*.07,8,8,"BE7358")
@@ -138,7 +168,19 @@ function R.sloth(x,y,height,facing,time,equipped,moving,sitting)
         R.rect(-h*.2,-h,h*.42,h*.1,"D7AA44")
         for i=0,2 do R.rect(-h*.2+i*h*.17,-h-h*.09,h*.08,h*.12,"D7AA44") end
         R.rect(-h*.04,-h+h*.025,h*.06,h*.05,"BC6C57")
+    elseif equipped.hat=="tophat" then
+        R.rect(-h*.15,-h-h*.19,h*.31,h*.24,"243D35")
+        R.rect(-h*.15,-h-h*.025,h*.31,h*.06,"D6A34A")
+        R.rect(-h*.24,-h+h*.035,h*.49,h*.05,"243D35")
+    elseif equipped.hat=="flowerhat" then
+        R.rect(-h*.21,-h+h*.03,h*.43,h*.045,"77976B")
+        for i=0,2 do
+            local fx=-h*.18+i*h*.16
+            R.rect(fx,-h-h*.055,h*.09,h*.11,i==1 and "BE9ABC" or "F4F0E5",2)
+            R.rect(fx+h*.027,-h-h*.025,h*.035,h*.035,"D6A34A")
+        end
     end
+    love.graphics.pop()
     love.graphics.pop()
 end
 function R.coin(x,y,time,scale)
@@ -172,6 +214,16 @@ function R.enemy(e,time)
         R.rect(x+27,y+8,7,4,"C59840"); R.rect(x+25,y+5,2,2,"F4F0E5")
         local flap=math.sin(time*12)>0
         R.rect(x+7,y+(flap and -5 or 12),12,10,c); R.rect(x,y+8,8,5,c)
+    elseif e.kind=="eagle" then
+        local wing=e.state=="windup" and -17 or math.sin(time*(e.state=="dive" and 17 or 8))>0 and -12 or 13
+        local feather=(e.frozen or 0)>0 and "8FC6CD" or "6D4D36"
+        R.rect(7,8,26,16,feather,3); R.rect(0,12,12,8,feather)
+        R.rect(10,wing,18,18,feather); R.rect(7,wing+3,5,13,"9A7850")
+        R.rect(26,3,14,15,"F4F0E5",3); R.rect(36,12,9,5,"D6A34A")
+        R.rect(41,15,4,5,"D6A34A"); R.rect(34,6,3,3,"243D35")
+        R.rect(14,22,7,4,"D6A34A"); R.rect(26,22,7,4,"D6A34A")
+        if e.state=="windup" then R.text("!",17,-25,18,"D6A34A") end
+        for i=1,e.hp do R.rect(10+(i-1)*10,-7,7,3,"BE7257") end
     elseif e.kind=="icecube" then
         R.rect(1,0,28,30,"547E95",2); R.rect(3,2,24,25,"A3D4DF")
         R.rect(5,4,6,11,"D8F0F0"); R.rect(7,23,18,3,"77B4CA")
@@ -189,6 +241,18 @@ function R.enemy(e,time)
         R.rect(15,16,5,2,"95B7C7")
     end
     love.graphics.pop()
+end
+function R.heart(x,y)
+    R.rect(x+2,y,6,3,"BE7257"); R.rect(x+12,y,6,3,"BE7257")
+    R.rect(x,y+3,20,6,"BE7257"); R.rect(x+3,y+9,14,4,"BE7257")
+    R.rect(x+6,y+13,8,3,"BE7257"); R.rect(x+9,y+16,2,2,"BE7257")
+    R.rect(x+3,y+3,4,3,"F4C3AC")
+end
+function R.grenade(x,y,fuse)
+    local flashing=fuse and fuse<1 and math.floor(fuse*8)%2==0
+    R.rect(x+3,y,7,4,"806C44"); R.rect(x+8,y-2,5,3,"D6A34A")
+    R.rect(x,y+5,14,12,flashing and "BE7257" or "456A52",3)
+    R.rect(x+3,y+6,3,9,"84A073"); R.rect(x+1,y+10,12,2,"243D35")
 end
 function R.decoration(d,time)
     local x,y=d.x,d.y
@@ -267,6 +331,12 @@ function R.world(game,save)
             R.text("+",a.x+4,a.y+3+math.sin(game.time*3)*2,14,"FFF3D3")
         end
     end
+    for _,heart in ipairs(game.level.hearts or {}) do
+        if not heart.taken then R.heart(heart.x,heart.y+math.sin(game.time*3)*2) end
+    end
+    for _,grenade in ipairs(game.level.grenades or {}) do
+        if not grenade.taken then R.grenade(grenade.x,grenade.y+math.sin(game.time*3)*2) end
+    end
     local cp=game.level.checkpoint
     if cp then
         R.rect(cp.x,cp.y,3,60,p.ink)
@@ -288,7 +358,19 @@ function R.world(game,save)
         love.graphics.line(cx-25,y+18,cx-8,player.y+18); love.graphics.line(cx+25,y+18,cx+8,player.y+18)
     end
     if player.invincible==0 or math.floor(player.invincible*12)%2==0 then
-        R.sloth(player.x+player.w/2,player.y+player.h,61,player.facing,game.time,save.equipped,player.onGround and player.vx~=0,player.sitting)
+        R.sloth(player.x+player.w/2,player.y+player.h,61,player.facing,game.time,save.equipped,player.walking,player.sitting,player.walkPhase)
+        if (save.grenades or 0)>0 then R.grenade(player.x+(player.facing>0 and 19 or -10),player.y+18) end
+    end
+    for _,grenade in ipairs(game.thrownGrenades or {}) do
+        love.graphics.push(); love.graphics.translate(grenade.x+7,grenade.y+9); love.graphics.rotate(grenade.rotation)
+        R.grenade(-7,-9,grenade.fuse); love.graphics.pop()
+        R.text(tostring(math.ceil(grenade.fuse)),grenade.x-3,grenade.y-20,12,"B18736",20,"center")
+    end
+    for _,blast in ipairs(game.explosions or {}) do
+        local progress=1-blast.life/blast.max
+        R.color("EDC05F",(1-progress)*.35); love.graphics.circle("fill",blast.x,blast.y,blast.radius*(.3+.7*progress))
+        R.color("CB6F32",1-progress); love.graphics.setLineWidth(3)
+        love.graphics.circle("line",blast.x,blast.y,blast.radius*(.3+.7*progress))
     end
     for _,s in ipairs(game.shots) do
         R.rect(s.x-5*(s.vx>0 and 1 or -1),s.y+2,9,6,s.frost and "D1EAE5" or "EDC05F")
@@ -301,7 +383,10 @@ function R.world(game,save)
         R.rect(-6,-5,3,2,"76663E"); R.rect(-2,2,5,1,"FFF0AE")
         love.graphics.pop()
     end
-    for _,q in ipairs(game.particles) do R.rect(q.x,q.y,3,3,q.color) end
+    for _,q in ipairs(game.particles) do
+        if q.kind=="star" then R.rect(q.x-2,q.y,7,2,q.color); R.rect(q.x,q.y-2,2,7,q.color)
+        else R.rect(q.x,q.y,3,3,q.color) end
+    end
     love.graphics.pop()
     -- HUD stays readable in every biome.
     R.rect(20,18,920,62,"FBF8EE",10)
@@ -324,12 +409,14 @@ function R.world(game,save)
         R.rect(21,86,132,22,"FBF8EE",4)
         R.text("MAGNET  "..math.ceil(player.magnetTime).."s",31,90,11,"8C783F")
     end
+    R.grenade(638,60)
+    R.text("G "..((save.grenades or 0)>0 and "READY" or "EMPTY"),658,62,10,"718369")
     if game.noticeTime and game.noticeTime>0 then
-        R.rect(190,99,580,32,"FBF8EE",6); R.text(game.notice,200,107,13,"516950",560,"center")
+        R.rect(318,86,606,24,"FBF8EE",6); R.text(game.notice,328,92,11,"516950",586,"center")
     end
     R.rect(0,505,960,35,p.sky)
-    R.text(game.custom and "A D / ARROWS   WALK      SPACE   JUMP      S / DOWN   SIT      ALT / X   FIRE      ESC   PAUSE" or
-        "A D / ARROWS   WALK      SPACE   JUMP      S / DOWN   SIT      ALT / X   FIRE      B   SHOP      ESC   PAUSE",20,516,11,p.ink,920,"center")
+    R.text(game.custom and "A D / ARROWS  WALK    SPACE  JUMP    S  SIT    ALT / X  FIRE    G  GRENADE    ESC  PAUSE" or
+        "A D / ARROWS  WALK    SPACE  JUMP    S  SIT    ALT / X  FIRE    G  GRENADE    B  SHOP    ESC  PAUSE",20,516,11,p.ink,920,"center")
 end
 function R.button(button,hover,focus)
     local active=hover or focus

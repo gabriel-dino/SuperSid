@@ -1,3 +1,4 @@
+local Eagles=require("src.eagles")
 local Levels = {}
 Levels.names = {
     "A slow beginning", "Fernwood trail", "The broken bridge", "Cloudberry cliffs",
@@ -26,7 +27,7 @@ function Levels.create(index)
     assert(index >= 1 and index <= Levels.count, "Level must be between 1 and "..Levels.count)
     local difficulty=Levels.difficulty(index)
     local level = {index=index, name=Levels.names[index], biome=Levels.biomes[index],
-        width=2700 + index*210, height=540, platforms={}, coins={}, ammo={}, enemies={}, decorations={},difficulty=difficulty}
+        width=2700 + index*210, height=540, platforms={}, coins={}, ammo={},hearts={},grenades={}, enemies={}, decorations={},difficulty=difficulty}
     local id = 0
     local sections = {}
     local function platform(x,y,w,h,kind)
@@ -83,7 +84,7 @@ function Levels.create(index)
     end
     -- Keep the original pickup IDs stable for campaigns already in progress.
     -- Add the new routes after the original terrain and pickups are generated.
-    for _,route in ipairs(sections) do
+    for section,route in ipairs(sections) do
         local ground=route.ground
         local lower=route.lower
         if not lower then
@@ -98,6 +99,18 @@ function Levels.create(index)
             lower.y-88,upperWidth,15,"ledge")
         upper.tier=2; upper.stepFrom=lower
         for cx=upper.x+16,upper.x+upper.w-10,32 do coin(cx,upper.y-30) end
+        -- Keep the first island safe; upper routes beyond it have their own threat.
+        if section>1 then
+            local eagle=Eagles.new(upper.x+upper.w/2-20,math.max(105,upper.y-90),ground.x+20,
+                ground.x+ground.w-20,85+index*2,section)
+            level.enemies[#level.enemies+1]=eagle
+        end
+        if section==2 or section%4==0 then
+            level.hearts[#level.hearts+1]={x=ground.x+ground.w-95,y=ground.y-28,w=20,h=18,id="heart"..section}
+        end
+        if section==1 or section%3==0 then
+            level.grenades[#level.grenades+1]={x=ground.x+ground.w-125,y=ground.y-28,w=14,h=18,id="grenade"..section}
+        end
         -- Wider islands get a second step for descending or climbing from the right.
         local descentX=ground.x+ground.w-140
         if descentX>=lower.x+lower.w+32 then

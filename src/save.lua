@@ -1,7 +1,7 @@
 local Levels=require("src.levels")
 local Save = {}
 function Save.defaults()
-    return {version=3,coins=0,ammo=5,level=1,unlocked=1,completed=false,owned={},equipped={},collected={},checkpoint=false,best={}}
+    return {version=3,coins=0,ammo=5,grenades=0,level=1,unlocked=1,completed=false,owned={},equipped={},collected={},checkpoint=false,best={}}
 end
 local function encode(value)
     if type(value)=="number" then return tostring(value)
@@ -42,6 +42,10 @@ local function read(path)
     end
     result.coins=math.max(0,result.coins)
     result.ammo=math.max(0,math.min(99,result.ammo))
+    if data.grenades~=nil then
+        if type(data.grenades)~="number" or data.grenades~=data.grenades or data.grenades==math.huge or data.grenades==-math.huge then return nil end
+        result.grenades=math.max(0,math.min(1,math.floor(data.grenades)))
+    end
     result.level=math.max(1,math.min(Levels.count,result.level))
     result.unlocked=math.max(result.level,math.min(Levels.count,result.unlocked))
     result.completed=data.completed==true

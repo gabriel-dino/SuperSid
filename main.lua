@@ -8,9 +8,21 @@ local Custom=require("src.custom_levels")
 local Editor=require("src.editor")
 local EditorView=require("src.editor_view")
 local utf8=require("utf8")
+local Viewport=require("src.viewport")
 local app={state="menu",buttons={},focus=1,time=0,shopSelection=1,shopReturn="menu",touches={}}
 local smoke=false
 local save,game,canvas
+local function refreshCanvas()
+    local width,height=love.graphics.getDimensions()
+    local pixelWidth,pixelHeight=love.graphics.getPixelDimensions()
+    local view=Viewport.fit(width,height,pixelWidth,pixelHeight)
+    if canvas and math.abs(canvas:getDPIScale()-view.density)<.0001 then return end
+    if canvas then canvas:release() end
+    canvas=love.graphics.newCanvas(960,540,{dpiscale=view.density})
+    canvas:setFilter("linear","linear")
+    if R.fonts then R.loadFonts(view.density) end
+    app.renderDensity=view.density
+end
 local openContrib,openEditor,leaveEditor,playCustom
 local function persist() if save and not smoke then Save.write(save) end end
 local function state(name) app.state=name; app.focus=1; app.buttons={} end
@@ -36,8 +48,7 @@ local function button(label,x,y,w,h,action,secondary,disabled)
 end
 local function coords(x,y)
     local width,height=love.graphics.getDimensions()
-    local scale=math.min(width/960,height/540)
-    return (x-(width-960*scale)/2)/scale,(y-(height-540*scale)/2)/scale
+    return Viewport.toGame(x,y,width,height)
 end
 local function inside(b,x,y) return x>=b.x and y>=b.y and x<=b.x+b.w and y<=b.y+b.h end
 local function closeDialog() app.dialog=nil; love.keyboard.setTextInput(false) end
@@ -95,8 +106,8 @@ function love.load(args)
     for _,arg in ipairs(args or {}) do if arg=="--smoke" then smoke=true end end
     love.graphics.setDefaultFilter("nearest","nearest")
     love.keyboard.setKeyRepeat(true)
-    canvas=love.graphics.newCanvas(960,540)
-    R.load(); Audio.load()
+    refreshCanvas()
+    R.load(app.renderDensity); Audio.load()
     save=smoke and Save.defaults() or Save.load()
     game=Game.new(save,Audio)
     app.saveTimer=0
@@ -104,6 +115,8 @@ function love.load(args)
 end
 function love.update(dt)
     app.time=app.time+dt
+    -- Also catches programmatic fullscreen changes and moving between DPI scales.
+    refreshCanvas()
     if app.state=="editor" and not app.dialog then
         local pan=(love.keyboard.isDown("right","d") and 1 or 0)-(love.keyboard.isDown("left","a") and 1 or 0)
         app.editor:scroll(pan*640*dt)
@@ -117,7 +130,7 @@ function love.update(dt)
             elseif t.x>=700 and t.x<830 and t.y>400 then gliding=true
             elseif t.x>830 and t.y>400 then shooting=true end
         end
-        game:update(dt,{left=left or love.keyboard.isDown("a","left"),right=right or love.keyboard.isDown("d","right"),
+        game:update(dt,{left=left or love.keyboard.isDown("a","left"),right=right or love.keyboard.isDown("d","right") or smoke and app.smokeWalkRight,
             shoot=shooting or love.keyboard.isDown("lalt","ralt","x"),sit=sitting or love.keyboard.isDown("s","down") or smoke and app.smokeSit,
             glide=gliding or love.keyboard.isDown("space","w","up") or smoke and app.smokeGlide})
         app.saveTimer=app.saveTimer+dt
@@ -193,14 +206,19 @@ function love.update(dt)
         elseif n==88 then state("gallery")
         elseif n==96 then state("menu")
         elseif n>=104 then
-            require("tests.editor_smoke")(n,app,save,{
+            local smokeAPI={
                 game=function() return game end,
                 start=start,
                 route=function() save.unlocked=Levels.count; state("route") end,
+                view=function(name) state(name) end,
+                renderInfo=function() return canvas end,
                 screenshotDone=function()
-                    print("LOVE runtime smoke passed: 25 levels, three shop pages, magnet, parachute, companion, decoration packs and sharing, editor, custom play and campaign progression")
+                    print("LOVE runtime smoke passed: eagles, hearts, timed grenades, editor sharing, native-resolution fonts and artwork at resized/maximized/fullscreen sizes, animation, shop and all 25 levels")
                 end
-            })
+            }
+            require("tests.editor_smoke")(n,app,save,smokeAPI)
+            if n>=376 then require("tests.animation_smoke").update(n,app,save,smokeAPI) end
+            if n>=424 then require("tests.field_smoke")(n,app,save,smokeAPI) end
         end
     end
 end
@@ -275,6 +293,8 @@ function love.draw()
         end
         R.text(Levels.count.." trails await. Equip the leaf parachute and hold JUMP while falling to glide.\nFind coins for a magnet, companion and editor decorations. Progress saves automatically.",33,410,14,"718369",850)
         button("Ready to wander",710,479,218,38,back)
+    elseif mode=="walk-gallery" and smoke then
+        require("tests.animation_smoke").draw(app.time)
     elseif mode=="gallery" and smoke then
         R.panel("Facing and platform verification","All artwork faces right locally, then mirrors with movement. Sid's feet stay on the platform.")
         for row,facing in ipairs({1,-1}) do
@@ -294,7 +314,7 @@ function love.draw()
         if mode=="playing" then
             button("II",855,30,68,36,function() state("paused"); persist() end,true)
             if app.touchMode then
-                for _,b in ipairs({{25,"<"},{135,">"},{600,"SIT"},{718,"JUMP"},{836,"FIRE"}}) do
+                for _,b in ipairs({{25,"<"},{135,">"},{482,"GRENADE"},{600,"SIT"},{718,"JUMP"},{836,"FIRE"}}) do
                     R.color("FBF8EE",.75); love.graphics.rectangle("fill",b[1],431,98,63,7,7)
                     R.text(b[2],b[1],453,14,"243D35",98,"center")
                 end
@@ -358,16 +378,17 @@ function love.draw()
     if not Audio.enabled then R.text("SOUND OFF",842,6,10,"9BA58E") end
     love.graphics.setCanvas()
     local width,height=love.graphics.getDimensions()
-    local scale=math.min(width/960,height/540)
+    local view=Viewport.fit(width,height)
     love.graphics.clear(.12,.18,.15,1); love.graphics.setColor(1,1,1,1)
-    love.graphics.draw(canvas,(width-960*scale)/2,(height-540*scale)/2,0,scale,scale)
+    love.graphics.draw(canvas,view.x,view.y,0,view.scale,view.scale)
     if smoke and app.smokeFrames%8==6 then
         local filename="smoke/"..app.smokeFrames.."-"..mode..".png"
         canvas:newImageData():encode("png",filename)
         print("Screenshot: "..love.filesystem.getSaveDirectory().."/"..filename)
     end
 end
-function love.keypressed(key)
+function love.keypressed(key,scancode,isrepeat)
+    if isrepeat and app.state=="playing" and (key=="space" or key=="w" or key=="up" or key=="g") then return end
     if app.dialog then
         if key=="escape" then closeDialog()
         elseif app.dialog.kind=="text" then
@@ -401,12 +422,16 @@ function love.keypressed(key)
         elseif key=="c" then e.tool="checkpoint"
         elseif key=="e" then e.tool="erase"
         elseif key=="v" then e.tool="decoration"
+        elseif key=="r" then e.tool="eagle"
+        elseif key=="h" then e.tool="heart"
+        elseif key=="g" then e.tool="grenade"
         else
             local number=tonumber(key)
             if number then e.tool=Editor.tools[number==0 and 10 or number].id end
         end
     elseif app.state=="playing" then
         if key=="space" or key=="w" or key=="up" then game:jump()
+        elseif key=="g" then game:throwGrenade()
         elseif key=="b" then shop() end
     elseif app.state=="shop" then
         if key=="pagedown" or key=="]" then changeShopPage(1)
@@ -486,6 +511,7 @@ function love.touchpressed(id,x,y)
     app.touchMode=true
     local tx,ty=coords(x,y); app.touches[id]={x=tx,y=ty}
     if app.state=="playing" and tx>=700 and tx<830 and ty>400 then game:jump()
+    elseif app.state=="playing" and tx>=480 and tx<590 and ty>400 then game:throwGrenade()
     elseif app.state~="playing" or ty<400 then love.mousepressed(x,y,1) end
 end
 function love.touchmoved(id,x,y)

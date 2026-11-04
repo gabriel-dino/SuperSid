@@ -1,6 +1,6 @@
 local Audio = {enabled=true,sounds={}}
 function Audio.load()
-    local specs={jump={340,.11},coin={880,.08},shoot={180,.09},hurt={95,.18},win={660,.4},click={560,.04},ammo={480,.13}}
+    local specs={jump={340,.11},coin={880,.08},shoot={180,.09},hurt={95,.18},win={660,.4},click={560,.04},ammo={480,.13},heal={1040,.18},throw={250,.12},explosion={60,.34}}
     for name,spec in pairs(specs) do
         local rate,duration=22050,spec[2]
         local data=love.sound.newSoundData(math.floor(rate*duration),rate,16,1)

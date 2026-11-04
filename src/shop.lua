@@ -26,6 +26,16 @@ Shop.items = {
     {id="deco_woodland",name="Woodland pack",category="EDITOR DECORATIONS",description="Mushrooms, ferns and flowers.",cost=50,kind="decoration",icon="flower"},
     {id="deco_crystals",name="Crystal pack",category="EDITOR DECORATIONS",description="Crystals, ice flowers and sparkles.",cost=50,kind="decoration",icon="crystal"},
     {id="deco_trail",name="Trail signs pack",category="EDITOR DECORATIONS",description="Signs, lanterns and banners.",cost=50,kind="decoration",icon="sign"},
+    {id="doublejump",name="Cloud step",category="ABILITIES",description="Press jump again for an air jump.",cost=120,kind="ability",icon="boots"},
+    {id="sprint",name="Trail runners",category="BOOTS",description="Walk faster: 240 instead of 195.",cost=65,kind="boots",icon="boots"},
+    {id="lucky",name="Lucky coin",category="CHARMS",description="Each collected coin is worth two.",cost=90,kind="charm",icon="coin"},
+    {id="ammo15",name="Big spark pouch",category="SUPPLIES",description="Fifteen fireballs for a long trail.",cost=20,kind="ammo",amount=15,icon="ammo"},
+    {id="tophat",name="Trail gentleman",category="HATS",description="A tall hat with a golden ribbon.",cost=35,kind="hat",icon="hat"},
+    {id="flowerhat",name="Flower crown",category="HATS",description="A little garden for Sid's head.",cost=28,kind="hat",icon="flower"},
+    {id="ocean",name="Ocean breeze",category="COLORS",description="A deep blue shade for the trail.",cost=25,kind="color",icon="color"},
+    {id="lavender",name="Lavender dream",category="COLORS",description="A soft purple for a brave sloth.",cost=25,kind="color",icon="color"},
+    {id="raincoat",name="Rainy-day hero",category="OUTFITS",description="A bright yellow trail raincoat.",cost=50,kind="outfit",icon="outfit"},
+    {id="comet",name="Comet footsteps",category="TRAILS",description="Leave little stars while walking.",cost=45,kind="trail",icon="star"},
 }
 Shop.pageSize=12
 function Shop.page(index) return math.floor((index-1)/Shop.pageSize)+1 end
@@ -39,8 +49,9 @@ function Shop.buy(save,item)
         if save.ammo>=99 then return false,"Your pockets are full." end
         if save.coins<item.cost then return false,"Collect a few more coins first." end
         save.coins=save.coins-item.cost
-        save.ammo=math.min(99,save.ammo+5)
-        return true,"Five sparks, coming right up!"
+        local amount=item.amount or 5
+        save.ammo=math.min(99,save.ammo+amount)
+        return true,"+"..amount.." fireballs. Ready for the trail!"
     end
     if item.kind=="decoration" then
         if save.owned[item.id] then return true,"Already unlocked in the Level editor." end

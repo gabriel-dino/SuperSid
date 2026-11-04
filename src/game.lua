@@ -1,6 +1,9 @@
 local Levels=require("src.levels")
 local Actors=require("src.actors")
 local Custom=require("src.custom_levels")
+local Animation=require("src.sid_animation")
+local Eagles=require("src.eagles")
+local Grenades=require("src.grenades")
 local Game={}
 Game.__index=Game
 local function overlaps(a,b)
@@ -34,6 +37,7 @@ function Game:resetPlayer()
     local maxHealth=self.save.equipped.charm=="heart" and 4 or 3
     self.player={x=self.level.spawn.x,y=self.level.spawn.y,w=23,h=43,vx=0,vy=0,facing=1,health=maxHealth,maxHealth=maxHealth,
         onGround=false,coyote=0,invincible=0,fireTimer=0,sitting=false,magnetTime=30,gliding=false,
+        walkPhase=0,walking=false,airJumpsUsed=0,trailTimer=0,
         bananaShield=self.save.equipped.charm=="shield" and 1 or 0}
     if self.save.checkpoint and self.level.checkpoint then
         self.player.x=self.level.checkpoint.x
@@ -41,12 +45,13 @@ function Game:resetPlayer()
         self.level.checkpoint.active=true
     end
     self.camera=math.max(0,math.min(self.level.width-960,self.player.x-250))
-    self.shots={}; self.enemyShots={}; self.particles={}; self.time=0; self.jumpBuffer=0
+    self.shots={}; self.enemyShots={}; self.particles={}; self.thrownGrenades={}; self.explosions={}; self.time=0; self.jumpBuffer=0
     self.finished=false; self.dead=false; self.earned=0; self.kills=0
     self.companion={x=self.player.x-28,y=self.player.y-12}
     self.save.ammo=math.max(5,self.save.ammo)
+    self.save.grenades=self.save.grenades or 0
     for _,e in ipairs(self.level.enemies) do e.facing=Actors.facing(e.vx) end
-    for _,items in ipairs({self.level.coins,self.level.ammo}) do
+    for _,items in ipairs({self.level.coins,self.level.ammo,self.level.hearts or {},self.level.grenades or {}}) do
         for _,item in ipairs(items) do item.taken=self.save.collected[item.id]==true end
     end
 end
@@ -56,6 +61,25 @@ function Game:burst(x,y,color,count)
     end
 end
 function Game:jump() self.jumpBuffer=.14 end
+function Game:throwGrenade()
+    if self.dead or self.finished or (self.save.grenades or 0)==0 then return false end
+    self.save.grenades=0
+    self.thrownGrenades[#self.thrownGrenades+1]=Grenades.new(self.player)
+    self.audio.play("throw")
+    return true
+end
+function Game:damageEnemy(e,damage)
+    if e.hp<=0 then return end
+    if e.hp<=damage then self:defeat(e) else e.hp=e.hp-damage end
+end
+function Game:explodeGrenade(g)
+    local x,y=g.x+g.w/2,g.y+g.h/2
+    for _,e in ipairs(self.level.enemies) do
+        if e.hp>0 and Grenades.hits(x,y,e) then self:damageEnemy(e,Grenades.damage) end
+    end
+    self.explosions[#self.explosions+1]={x=x,y=y,radius=Grenades.radius,life=.4,max=.4}
+    self:burst(x,y,{1,.65,.22},22); self.audio.play("explosion")
+end
 function Game:shoot()
     local p=self.player
     if p.fireTimer>0 then return end
@@ -90,7 +114,7 @@ end
 function Game:defeat(e)
     if e.hp<=0 then return end
     e.hp=0; self.kills=self.kills+1
-    local reward=e.kind=="bird" and 10 or e.kind=="monkey" and 5 or 0
+    local reward=(e.kind=="bird" or e.kind=="eagle") and 10 or e.kind=="monkey" and 5 or 0
     self.save.coins=self.save.coins+reward
     self.earned=self.earned+reward
     if reward>0 then self.audio.play("coin") end
@@ -106,13 +130,18 @@ function Game:update(dt,input)
     self.noticeTime=math.max(0,(self.noticeTime or 0)-dt)
     if p.onGround then p.coyote=.11 else p.coyote=math.max(0,p.coyote-dt) end
     local direction=(input.right and 1 or 0)-(input.left and 1 or 0)
-    p.vx=direction*195
+    p.vx=direction*(self.save.equipped.boots=="sprint" and 240 or 195)
     p.facing=Actors.facing(p.vx,p.facing)
     if self.jumpBuffer>0 and p.coyote>0 then
         p.vy=self.save.equipped.boots=="boots" and -575 or -530
         p.onGround=false; p.coyote=0; self.jumpBuffer=0; self.audio.play("jump")
+    elseif self.jumpBuffer>0 and self.save.equipped.ability=="doublejump" and p.airJumpsUsed<1 then
+        p.vy=-500; p.airJumpsUsed=p.airJumpsUsed+1; p.onGround=false
+        self.jumpBuffer=0; self.audio.play("jump")
+        self:burst(p.x+p.w/2,p.y+p.h,{.65,.83,.9},6)
     end
     if input.shoot then self:shoot() end
+    local previousX=p.x
     p.x=p.x+p.vx*dt
     p.x=math.max(0,math.min(self.level.width-p.w,p.x))
     for _,tile in ipairs(self.level.platforms) do
@@ -138,9 +167,20 @@ function Game:update(dt,input)
             if not ceiling or tile.y+tile.h>ceiling.y+ceiling.h then ceiling=tile end
         end
     end
-    if landing then p.y=landing.y-p.h; p.vy=0; p.onGround=true; p.platform=landing; p.gliding=false end
+    if landing then p.y=landing.y-p.h; p.vy=0; p.onGround=true; p.platform=landing; p.gliding=false; p.airJumpsUsed=0 end
     if ceiling then p.y=ceiling.y+ceiling.h; p.vy=0 end
     p.sitting=input.sit==true and p.onGround and direction==0
+    local travelled=math.abs(p.x-previousX)
+    p.walking=p.onGround and travelled>.001
+    if p.walking then
+        p.walkPhase=(p.walkPhase+travelled/Animation.stride*math.pi*2)%(math.pi*2)
+    else p.walkPhase=0 end
+    p.trailTimer=math.max(0,p.trailTimer-dt)
+    if p.walking and self.save.equipped.trail=="comet" and p.trailTimer==0 then
+        p.trailTimer=.08
+        self.particles[#self.particles+1]={x=p.x+p.w/2-p.facing*10,y=p.y+p.h-3,
+            vx=-p.facing*20,vy=-35,life=.42,max=.42,color={.95,.77,.39},kind="star"}
+    end
     if p.y>590 then p.health=0; self.dead=true; self.audio.play("hurt") end
     local magnet=self.save.equipped.magnet=="magnet" and p.magnetTime>0
     if magnet then p.magnetTime=math.max(0,p.magnetTime-dt) end
@@ -156,7 +196,8 @@ function Game:update(dt,input)
         end
         if not coin.taken and overlaps(p,coin) then
             coin.taken=true; self.save.collected[coin.id]=true
-            self.save.coins=self.save.coins+1; self.earned=self.earned+1
+            local value=self.save.equipped.charm=="lucky" and 2 or 1
+            self.save.coins=self.save.coins+value; self.earned=self.earned+value
             self.audio.play("coin"); self:burst(coin.x+6,coin.y,{.91,.62,.13},5)
         end
     end
@@ -167,27 +208,45 @@ function Game:update(dt,input)
             self.notice="+5 fireballs. Make them count!"; self.noticeTime=2
         end
     end
+    for _,heart in ipairs(self.level.hearts or {}) do
+        if not heart.taken and p.health<p.maxHealth and p.health>0 and overlaps(p,heart) then
+            heart.taken=true; self.save.collected[heart.id]=true
+            p.health=math.min(p.maxHealth,p.health+1)
+            self.notice="+1 heart. Ready to keep going!"; self.noticeTime=2
+            self.audio.play("heal"); self:burst(heart.x+10,heart.y,{.85,.35,.34},8)
+        end
+    end
+    for _,grenade in ipairs(self.level.grenades or {}) do
+        if not grenade.taken and self.save.grenades==0 and overlaps(p,grenade) then
+            grenade.taken=true; self.save.collected[grenade.id]=true; self.save.grenades=1
+            self.notice="Grenade found! Press G or GRENADE to throw. Fuse: 3 seconds."; self.noticeTime=3
+            self.audio.play("ammo")
+        end
+    end
     for _,e in ipairs(self.level.enemies) do
         if e.hp>0 then
             e.frozen=math.max(0,(e.frozen or 0)-dt)
             if e.frozen==0 then
-                -- A short wind-up makes each of the monkey's three throws readable.
-                if not e.throwWindup then e.x=e.x+e.vx*dt end
-                if e.x<e.min then e.x=e.min; e.vx=math.abs(e.vx)
-                elseif e.x+e.w>e.max then e.x=e.max-e.w; e.vx=-math.abs(e.vx) end
-                e.facing=Actors.facing(e.vx,e.facing)
-                if e.kind=="bird" then e.y=e.homeY+math.sin(self.time*2+e.phase)*24
-                elseif e.kind=="snowball" then e.y=e.homeY-math.abs(math.sin(self.time*4+(e.phase or 0)))*17 end
-                if e.kind=="monkey" then
-                    if e.bananasLeft==nil then e.bananasLeft=3; e.throwTimer=1 end
-                    if e.throwWindup then
-                        e.throwWindup=e.throwWindup-dt
-                        if e.throwWindup<=0 then self:throwBanana(e); e.throwWindup=nil end
-                    else
-                        e.throwTimer=math.max(0,(e.throwTimer or 0)-dt)
-                        local distance=p.x+p.w/2-(e.x+e.w/2)
-                        if e.bananasLeft>0 and e.throwTimer==0 and distance*e.facing>35 and
-                            math.abs(distance)<330 and math.abs(p.y-e.y)<100 then e.throwWindup=.32 end
+                if e.kind=="eagle" then Eagles.update(e,dt,self.time,p)
+                else
+                    -- A short wind-up makes each of the monkey's three throws readable.
+                    if not e.throwWindup then e.x=e.x+e.vx*dt end
+                    if e.x<e.min then e.x=e.min; e.vx=math.abs(e.vx)
+                    elseif e.x+e.w>e.max then e.x=e.max-e.w; e.vx=-math.abs(e.vx) end
+                    e.facing=Actors.facing(e.vx,e.facing)
+                    if e.kind=="bird" then e.y=e.homeY+math.sin(self.time*2+e.phase)*24
+                    elseif e.kind=="snowball" then e.y=e.homeY-math.abs(math.sin(self.time*4+(e.phase or 0)))*17 end
+                    if e.kind=="monkey" then
+                        if e.bananasLeft==nil then e.bananasLeft=3; e.throwTimer=1 end
+                        if e.throwWindup then
+                            e.throwWindup=e.throwWindup-dt
+                            if e.throwWindup<=0 then self:throwBanana(e); e.throwWindup=nil end
+                        else
+                            e.throwTimer=math.max(0,(e.throwTimer or 0)-dt)
+                            local distance=p.x+p.w/2-(e.x+e.w/2)
+                            if e.bananasLeft>0 and e.throwTimer==0 and distance*e.facing>35 and
+                                math.abs(distance)<330 and math.abs(p.y-e.y)<100 then e.throwWindup=.32 end
+                        end
                     end
                 end
             end
@@ -204,10 +263,13 @@ function Game:update(dt,input)
         for _,e in ipairs(self.level.enemies) do
             if e.hp>0 and not s.hit[e] and overlaps(s,e) then
                 s.hit[e]=true
-                if s.frost and not e.icy and not e.chilled then e.frozen=3; e.chilled=true
+                if e.kind=="eagle" then
+                    -- An eagle always takes two bullet hits, including meteor and frost.
+                    if s.frost then e.frozen=3; e.chilled=true end
+                    self:damageEnemy(e,1)
+                elseif s.frost and not e.icy and not e.chilled then e.frozen=3; e.chilled=true
                 else
-                    if e.hp<=s.damage then self:defeat(e)
-                    else e.hp=e.hp-s.damage end
+                    self:damageEnemy(e,s.damage)
                 end
                 s.remainingHits=s.remainingHits-1
                 if s.remainingHits==0 then s.life=0 end
@@ -236,6 +298,16 @@ function Game:update(dt,input)
             else self:hurt() end
         end
         if s.life<=0 then table.remove(self.enemyShots,i) end
+    end
+    for i=#self.explosions,1,-1 do
+        local blast=self.explosions[i]; blast.life=blast.life-dt
+        if blast.life<=0 then table.remove(self.explosions,i) end
+    end
+    for i=#self.thrownGrenades,1,-1 do
+        local grenade=self.thrownGrenades[i]
+        if Grenades.update(grenade,dt,self.level) then
+            table.remove(self.thrownGrenades,i); self:explodeGrenade(grenade)
+        end
     end
     for i=#self.particles,1,-1 do
         local q=self.particles[i]

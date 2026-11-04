@@ -126,6 +126,5 @@ return function(n,app,save,api)
     elseif n==352 then api.start(18)
     elseif n==360 then api.start(25)
     elseif n==368 then api.route()
-    elseif n==376 then api.screenshotDone(); love.event.quit(0)
     end
 end
